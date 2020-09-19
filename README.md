@@ -1,5 +1,7 @@
 # Control Node
 
+![ci-test](https://github.com/beamX/control-node/workflows/ci-test/badge.svg)
+
 **TODO: Add description**
 
 ## Installation
