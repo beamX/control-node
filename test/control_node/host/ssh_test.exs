@@ -14,7 +14,12 @@ defmodule ControlNode.Host.SSHTest do
       application_path = Path.join(base_path, "/namespace/application.txt")
       private_key_dir = with_fixture_path('host-vm/.ssh') |> :erlang.list_to_binary()
 
-      %SSH{host: "localhost", port: 9191, user: "kansi", private_key_dir: private_key_dir}
+      %SSH{
+        host: "openssh-server",
+        port: 2222,
+        user: "linuxserver.io",
+        private_key_dir: private_key_dir
+      }
       |> SSH.upload_file(application_path, "hello world")
 
       assert {:ok, "hello world"} = File.read(application_path)
