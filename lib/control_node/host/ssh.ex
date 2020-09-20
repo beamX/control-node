@@ -3,6 +3,45 @@ defmodule ControlNode.Host.SSH do
   defstruct host: nil, port: 22, user: nil, private_key_dir: nil
 
   @type t :: %__MODULE__{host: binary, port: integer, user: binary, private_key_dir: binary}
+  @timeout :infinity
+
+  @doc """
+  Creates SSH connection to remote host
+  """
+  @spec connect_host(t) :: {:ok, :ssh.connection_ref()} | {:error, term()}
+  def connect_host(ssh_config) do
+    ssh_options = [
+      {:user, to_list(ssh_config.user)},
+      {:user_dir, to_list(ssh_config.private_key_dir)},
+      {:user_interaction, false},
+      {:silently_accept_hosts, true},
+      {:auth_methods, 'publickey'}
+    ]
+
+    ssh_config.host
+    |> to_list()
+    |> :ssh.connect(ssh_config.port, ssh_options)
+  end
+
+  def exec(ssh_config, commands) when is_list(commands) do
+    exec(ssh_config, Enum.join(commands, "; "))
+  end
+
+  def exec(ssh_config, script) when is_binary(script) do
+    with {:ok, conn} <- connect_host(ssh_config),
+         {:ok, channel_id} <- :ssh_connection.session_channel(conn, @timeout) do
+      ret = :ssh_connection.exec(conn, channel_id, to_list(script), @timeout)
+
+      receive do
+        {:ssh_cm, ^conn, {:eof, 0}} -> :ok
+      end
+
+      :ssh_connection.close(conn, channel_id)
+      :ssh.close(conn)
+
+      ret
+    end
+  end
 
   @doc """
   Uploads `tar_file` to the `host` server via SSH and stores it at `file_path`
@@ -24,21 +63,6 @@ defmodule ControlNode.Host.SSH do
 
       :ok
     end
-  end
-
-  @spec connect_host(t) :: {:ok, :ssh.connection_ref()} | {:error, term()}
-  defp connect_host(ssh_config) do
-    ssh_options = [
-      {:user, :binary.bin_to_list(ssh_config.user)},
-      {:user_dir, :binary.bin_to_list(ssh_config.private_key_dir)},
-      {:user_interaction, false},
-      {:silently_accept_hosts, true},
-      {:auth_methods, 'publickey'}
-    ]
-
-    ssh_config.host
-    |> :binary.bin_to_list()
-    |> :ssh.connect(ssh_config.port, ssh_options)
   end
 
   defp do_upload_file(ssh_config, file_path, tar_file) do
@@ -74,16 +98,18 @@ defmodule ControlNode.Host.SSH do
       new_base_path = Path.join(base_path, dir)
 
       # ensure directory path uptil now is created
-      :ssh_sftp.opendir(channel_pid, :binary.bin_to_list(new_base_path))
+      :ssh_sftp.opendir(channel_pid, to_list(new_base_path))
       |> case do
         {:ok, _} ->
           :ok
 
         {:error, :no_such_file} ->
-          :ok = :ssh_sftp.make_dir(channel_pid, :binary.bin_to_list(new_base_path))
+          :ok = :ssh_sftp.make_dir(channel_pid, to_list(new_base_path))
       end
 
       new_base_path
     end)
   end
+
+  defp to_list(bin), do: :binary.bin_to_list(bin)
 end
