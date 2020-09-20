@@ -44,16 +44,16 @@ defmodule ControlNode.Host.SSHTest do
     end
 
     test "run list of commands on remote SSH server", %{ssh_config: ssh_config} do
-      :success =
-        SSH.exec(ssh_config, [
-          "export ENV_TEST='hello world'",
-          "echo $ENV_TEST > /tmp/config.txt"
-        ])
+      assert {:ok, %SSH.ExecStatus{exit_status: :success}} =
+               SSH.exec(ssh_config, [
+                 "export ENV_TEST='hello world'",
+                 "echo $ENV_TEST > /tmp/config.txt"
+               ])
 
       assert {:ok, "hello world\n"} = File.read("/tmp/config.txt")
     end
 
-    test "run script on remote SSH server", %{ssh_config: ssh_config} do
+    test "runs script on remote SSH server", %{ssh_config: ssh_config} do
       script = """
       #!/bin/sh
 
@@ -61,8 +61,18 @@ defmodule ControlNode.Host.SSHTest do
       echo $ENV_TEST > /tmp/config.txt
       """
 
-      :success = SSH.exec(ssh_config, script)
+      assert {:ok, %SSH.ExecStatus{exit_status: :success}} = SSH.exec(ssh_config, script)
       assert {:ok, "hello world\n"} = File.read("/tmp/config.txt")
+    end
+
+    test "return error when unknown command is provided", %{ssh_config: ssh_config} do
+      script = """
+      #!/bin/sh
+
+      unknown /tmp
+      """
+
+      {:ok, %SSH.ExecStatus{exit_status: :failure}} = SSH.exec(ssh_config, script)
     end
   end
 
