@@ -5,6 +5,11 @@ defmodule ControlNode.Host.SSH do
   @type t :: %__MODULE__{host: binary, port: integer, user: binary, private_key_dir: binary}
   @timeout :infinity
 
+  defmodule ExecStatus do
+    @type t :: %__MODULE__{exit_status: atom, exit_code: integer, message: list}
+    defstruct exit_status: nil, exit_code: nil, message: []
+  end
+
   @doc """
   Creates SSH connection to remote host
   """
@@ -23,23 +28,46 @@ defmodule ControlNode.Host.SSH do
     |> :ssh.connect(ssh_config.port, ssh_options)
   end
 
+  @doc """
+  Execute a given list of command or a bash script on the host vm
+  """
+  @spec exec(t, list | binary) :: ExecStatus.t() | :failure | {:error, any}
   def exec(ssh_config, commands) when is_list(commands) do
     exec(ssh_config, Enum.join(commands, "; "))
   end
 
   def exec(ssh_config, script) when is_binary(script) do
     with {:ok, conn} <- connect_host(ssh_config),
-         {:ok, channel_id} <- :ssh_connection.session_channel(conn, @timeout) do
-      ret = :ssh_connection.exec(conn, channel_id, to_list(script), @timeout)
-
-      receive do
-        {:ssh_cm, ^conn, {:eof, 0}} -> :ok
-      end
+         {:ok, channel_id} <- :ssh_connection.session_channel(conn, @timeout),
+         :success <- :ssh_connection.exec(conn, channel_id, to_list(script), @timeout) do
+      status = get_exec_status(conn, %ExecStatus{})
 
       :ssh_connection.close(conn, channel_id)
       :ssh.close(conn)
 
-      ret
+      {:ok, status}
+    end
+  end
+
+  defp get_exec_status(conn, status) do
+    receive do
+      {:ssh_cm, ^conn, {:closed, _channel_id}} ->
+        %{status | message: Enum.reverse(status.message)}
+
+      {:ssh_cm, ^conn, {:data, _channel_id, 0, success_msg}} ->
+        get_exec_status(conn, %{status | message: [success_msg | status.message]})
+
+      {:ssh_cm, ^conn, {:data, _channel_id, 1, error_msg}} ->
+        get_exec_status(conn, %{status | message: [error_msg | status.message]})
+
+      {:ssh_cm, ^conn, {:exit_status, _channel_id, 0}} ->
+        get_exec_status(conn, %{status | exit_status: :success, exit_code: 0})
+
+      {:ssh_cm, ^conn, {:exit_status, _channel_id, status_code}} ->
+        get_exec_status(conn, %{status | exit_status: :failure, exit_code: status_code})
+
+      {:ssh_cm, ^conn, {:eof, 0}} ->
+        get_exec_status(conn, status)
     end
   end
 
