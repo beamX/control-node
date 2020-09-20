@@ -6,7 +6,7 @@ defmodule ControlNode.Host.SSHTest do
     private_key_dir = with_fixture_path('host-vm/.ssh') |> :erlang.list_to_binary()
     # on CI the env var SSH_HOST is set to openssh-server to connect
     # to the service container running SSH server
-    host = System.get_env("SSH_HOST", "localhost") |> IO.inspect(label: "ssh host")
+    host = System.get_env("SSH_HOST", "localhost")
 
     ssh_config = %SSH{
       host: host,
@@ -35,6 +35,34 @@ defmodule ControlNode.Host.SSHTest do
       SSH.upload_file(ssh_config, application_path, "hello world")
 
       assert {:ok, "hello world"} = File.read(application_path)
+    end
+  end
+
+  describe "exec/3" do
+    setup do
+      on_exit(fn -> System.cmd("rm", ["-rf", "/tmp/config.txt"]) end)
+    end
+
+    test "run list of commands on remote SSH server", %{ssh_config: ssh_config} do
+      :success =
+        SSH.exec(ssh_config, [
+          "export ENV_TEST='hello world'",
+          "echo $ENV_TEST > /tmp/config.txt"
+        ])
+
+      assert {:ok, "hello world\n"} = File.read("/tmp/config.txt")
+    end
+
+    test "run script on remote SSH server", %{ssh_config: ssh_config} do
+      script = """
+      #!/bin/sh
+
+      export ENV_TEST='hello world';
+      echo $ENV_TEST > /tmp/config.txt
+      """
+
+      :success = SSH.exec(ssh_config, script)
+      assert {:ok, "hello world\n"} = File.read("/tmp/config.txt")
     end
   end
 
