@@ -6,7 +6,7 @@ defmodule ControlNode.Host.SSHTest do
     private_key_dir = with_fixture_path('host-vm/.ssh') |> :erlang.list_to_binary()
     # on CI the env var SSH_HOST is set to openssh-server to connect
     # to the service container running SSH server
-    host = System.get_env("SSH_HOST", "localhost")
+    host = System.get_env("SSH_HOST", "localhost") |> IO.inspect(label: "ssh host")
 
     ssh_config = %SSH{
       host: host,
