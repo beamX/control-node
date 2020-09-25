@@ -16,7 +16,7 @@ jobs:
         ports:
           - 2222:2222
     container:
-      image: elixir:1.10.4
+      image: hexpm/elixir:1.10.3-erlang-23.1-ubuntu-xenial-20200619
       volumes:
         - /tmp:/tmp
     steps:

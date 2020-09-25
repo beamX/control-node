@@ -10,11 +10,8 @@ defmodule ControlNode.Host.SSH do
     defstruct exit_status: nil, exit_code: nil, message: []
   end
 
-  @doc """
-  Creates SSH connection to remote host
-  """
   @spec connect_host(t) :: {:ok, :ssh.connection_ref()} | {:error, term()}
-  def connect_host(ssh_config) do
+  defp connect_host(ssh_config) do
     ssh_options = [
       {:user, to_list(ssh_config.user)},
       {:user_dir, to_list(ssh_config.private_key_dir)},
@@ -28,10 +25,16 @@ defmodule ControlNode.Host.SSH do
     |> :ssh.connect(ssh_config.port, ssh_options)
   end
 
+  def tunnel_port_to_server(ssh_config, port) do
+    with {:ok, conn} <- connect_host(ssh_config) do
+      :ssh.tcpip_tunnel_to_server(conn, '127.0.0.1', port, '127.0.0.1', port)
+    end
+  end
+
   @doc """
   Execute a given list of command or a bash script on the host vm
   """
-  @spec exec(t, list | binary) :: ExecStatus.t() | :failure | {:error, any}
+  @spec exec(t, list | binary) :: {:ok, ExecStatus.t()} | :failure | {:error, any}
   def exec(ssh_config, commands) when is_list(commands) do
     exec(ssh_config, Enum.join(commands, "; "))
   end
@@ -66,7 +69,7 @@ defmodule ControlNode.Host.SSH do
       {:ssh_cm, ^conn, {:exit_status, _channel_id, status_code}} ->
         get_exec_status(conn, %{status | exit_status: :failure, exit_code: status_code})
 
-      {:ssh_cm, ^conn, {:eof, 0}} ->
+      {:ssh_cm, ^conn, {:eof, _channel_id}} ->
         get_exec_status(conn, status)
     end
   end

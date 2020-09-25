@@ -76,6 +76,49 @@ defmodule ControlNode.Host.SSHTest do
     end
   end
 
+  describe "tunnel_port_to_server/3" do
+    test "successfully forwards packets from local port to remote port", %{ssh_config: ssh_config} do
+      pid = spawn(fn -> SSH.exec(ssh_config, ["nc -l -p 8989 > /tmp/tunnel_output.txt &"]) end)
+      ensure_nc_server_up(ssh_config)
+
+      {:ok, 8989} = SSH.tunnel_port_to_server(ssh_config, 8989)
+      tcp_local_send('hello world', 8989)
+
+      assert_until(fn ->
+        {:ok, "hello world"} == File.read("/tmp/tunnel_output.txt")
+      end)
+
+      # clean up
+      Process.exit(pid, :kill)
+      SSH.exec(ssh_config, ["pkill nc"])
+      File.read("/tmp/tunnel_output.txt")
+    end
+  end
+
+  defp tcp_local_send(message, port) do
+    {:ok, socket} = :gen_tcp.connect('127.0.0.1', port, [:binary, {:packet, 0}])
+    :ok = :gen_tcp.send(socket, message)
+    :ok = :gen_tcp.close(socket)
+  end
+
+  defp assert_until(fun) do
+    assert Enum.any?(0..20, fn _i ->
+             fun.()
+             :timer.sleep(100)
+           end)
+  end
+
+  defp ensure_nc_server_up(ssh_config) do
+    case SSH.exec(ssh_config, ["pgrep nc"]) do
+      {:ok, %{exit_status: :success, message: []}} ->
+        :timer.sleep(500)
+        ensure_nc_server_up(ssh_config)
+
+      {:ok, _} ->
+        :ok
+    end
+  end
+
   defp with_fixture_path(path) do
     Path.join([File.cwd!(), "test/fixture", path]) |> to_char_list()
   end
