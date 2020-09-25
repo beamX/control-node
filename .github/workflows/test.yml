@@ -16,7 +16,8 @@ jobs:
         ports:
           - 2222:2222
     container:
-      image: hexpm/elixir:1.10.3-erlang-23.1-ubuntu-xenial-20200619
+      # TODO: change to use otp 23
+      image: elixir:1.10.4
       volumes:
         - /tmp:/tmp
     steps:
