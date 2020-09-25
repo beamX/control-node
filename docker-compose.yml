@@ -1,0 +1,24 @@
+version: "2.1"
+services:
+  openssh-server:
+    image: linuxserver/openssh-server
+    container_name: openssh-server
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - PUBLIC_KEY=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDg+KMD7QAU+qtH3duwTHmBaJE/WUdiOwC87cqP5cL21 control-node@email.com
+    volumes:
+      - /tmp:/tmp
+      - ./test/fixture/config:/config
+    ports:
+      - 2222:2222
+  control-node:
+    container_name: control-node
+    build: .
+    depends_on:
+      - openssh-server
+    entrypoint: ["sleep", "3600"]
+    volumes:
+      - .:/app
+      - /tmp:/tmp
