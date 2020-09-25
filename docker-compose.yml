@@ -19,6 +19,7 @@ services:
     depends_on:
       - openssh-server
     entrypoint: ["sleep", "3600"]
+    working_dir: /app
     volumes:
       - .:/app
       - /tmp:/tmp
