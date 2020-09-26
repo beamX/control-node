@@ -3,33 +3,13 @@ on: push
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      openssh-server:
-        image: linuxserver/openssh-server
-        env:
-          PUID: 1000
-          PGID: 1000
-          TZ: Europe/Berlin
-          PUBLIC_KEY: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDg+KMD7QAU+qtH3duwTHmBaJE/WUdiOwC87cqP5cL21 control-node@email.com
-        volumes:
-          - /tmp:/tmp
-        ports:
-          - 2222:2222
-    container:
-      image: elixir:1.10.4
-      volumes:
-        - /tmp:/tmp
     steps:
       - uses: actions/checkout@v2
-      - name: Install Dependencies
-        env:
-          MIX_ENV: test
-        run: |
-          mix local.rebar --force
-          mix local.hex --force
-          mix deps.get
-      - name: Run Tests
-        env:
-          SSH_HOST: openssh-server
-        run: mix test
-
+      - name: List contents
+        run: ls -al
+      - name: Build docker-compose stack
+        run: docker-compose -f docker-compose.yml up -d
+      - name: Check running containers
+        run: docker ps -a
+      - name: Run test suite
+        run: docker exec control-node make test
