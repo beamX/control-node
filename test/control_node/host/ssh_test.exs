@@ -91,7 +91,7 @@ defmodule ControlNode.Host.SSHTest do
       # clean up
       Process.exit(pid, :kill)
       SSH.exec(ssh_config, ["pkill nc"])
-      File.read("/tmp/tunnel_output.txt")
+      File.rm_rf!("/tmp/tunnel_output.txt")
     end
   end
 
