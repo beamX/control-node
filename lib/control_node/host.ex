@@ -26,7 +26,7 @@ defmodule ControlNode.Host do
           {:ok, Info.t()} | {:error, :epmd_not_running | :unexpected_return_value}
   def info(%SSH{} = host_spec, epmd_path) do
     with {:ok, %SSH.ExecStatus{exit_code: 0, message: message}} <-
-           SSH.exec(host_spec, "#{epmd_path} -names", true) do
+           SSH.exec(host_spec, "#{epmd_path} -names") do
       extract_info(message)
     end
   end
