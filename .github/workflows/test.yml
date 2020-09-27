@@ -7,6 +7,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: List contents
         run: ls -al
+      - name: Change permission for test keys
+        run: make permissions
       - name: Build docker-compose stack
         run: docker-compose -f docker-compose.yml up -d
       - name: Check running containers

@@ -1,20 +1,10 @@
 defmodule ControlNode.Host.SSHTest do
   use ExUnit.Case
+  import ControlNode.TestUtils
   alias ControlNode.Host.SSH
 
   setup do
-    private_key_dir = with_fixture_path('host-vm/.ssh') |> :erlang.list_to_binary()
-    # on CI the env var SSH_HOST is set to openssh-server to connect
-    # to the service container running SSH server
-    host = System.get_env("SSH_HOST", "localhost")
-
-    ssh_config = %SSH{
-      host: host,
-      port: 2222,
-      user: "linuxserver.io",
-      private_key_dir: private_key_dir
-    }
-
+    {:ok, ssh_config} = ssh_fixture()
     %{ssh_config: ssh_config}
   end
 
@@ -101,13 +91,6 @@ defmodule ControlNode.Host.SSHTest do
     :ok = :gen_tcp.close(socket)
   end
 
-  defp assert_until(fun) do
-    assert Enum.any?(0..20, fn _i ->
-             fun.()
-             :timer.sleep(100)
-           end)
-  end
-
   defp ensure_nc_server_up(ssh_config) do
     case SSH.exec(ssh_config, ["pgrep nc"]) do
       {:ok, %{exit_status: :success, message: []}} ->
@@ -117,9 +100,5 @@ defmodule ControlNode.Host.SSHTest do
       {:ok, _} ->
         :ok
     end
-  end
-
-  defp with_fixture_path(path) do
-    Path.join([File.cwd!(), "test/fixture", path]) |> to_char_list()
   end
 end
