@@ -35,15 +35,19 @@ defmodule ControlNode.Host.SSH do
   Execute a given list of command or a bash script on the host vm
   """
   @spec exec(t, list | binary) :: {:ok, ExecStatus.t()} | :failure | {:error, any}
-  def exec(ssh_config, commands) when is_list(commands) do
-    exec(ssh_config, Enum.join(commands, "; "))
+  def exec(ssh_config, commands, skip_eof \\ false) do
+    do_exec(ssh_config, commands, skip_eof)
   end
 
-  def exec(ssh_config, script) when is_binary(script) do
+  defp do_exec(ssh_config, commands, skip_eof) when is_list(commands) do
+    do_exec(ssh_config, Enum.join(commands, "; "), skip_eof)
+  end
+
+  defp do_exec(ssh_config, script, skip_eof) when is_binary(script) do
     with {:ok, conn} <- connect_host(ssh_config),
          {:ok, channel_id} <- :ssh_connection.session_channel(conn, @timeout),
          :success <- :ssh_connection.exec(conn, channel_id, to_list(script), @timeout) do
-      status = get_exec_status(conn, %ExecStatus{})
+      status = get_exec_status(conn, %ExecStatus{}, skip_eof)
 
       :ssh_connection.close(conn, channel_id)
       :ssh.close(conn)
@@ -52,25 +56,29 @@ defmodule ControlNode.Host.SSH do
     end
   end
 
-  defp get_exec_status(conn, status) do
+  defp get_exec_status(conn, status, skip_eof) do
     receive do
       {:ssh_cm, ^conn, {:closed, _channel_id}} ->
         %{status | message: Enum.reverse(status.message)}
 
       {:ssh_cm, ^conn, {:data, _channel_id, 0, success_msg}} ->
-        get_exec_status(conn, %{status | message: [success_msg | status.message]})
+        get_exec_status(conn, %{status | message: [success_msg | status.message]}, skip_eof)
 
       {:ssh_cm, ^conn, {:data, _channel_id, 1, error_msg}} ->
-        get_exec_status(conn, %{status | message: [error_msg | status.message]})
+        get_exec_status(conn, %{status | message: [error_msg | status.message]}, skip_eof)
 
       {:ssh_cm, ^conn, {:exit_status, _channel_id, 0}} ->
-        get_exec_status(conn, %{status | exit_status: :success, exit_code: 0})
+        if skip_eof do
+          %{status | exit_status: :success, exit_code: 0}
+        else
+          get_exec_status(conn, %{status | exit_status: :success, exit_code: 0}, skip_eof)
+        end
 
       {:ssh_cm, ^conn, {:exit_status, _channel_id, status_code}} ->
-        get_exec_status(conn, %{status | exit_status: :failure, exit_code: status_code})
+        get_exec_status(conn, %{status | exit_status: :failure, exit_code: status_code}, skip_eof)
 
       {:ssh_cm, ^conn, {:eof, _channel_id}} ->
-        get_exec_status(conn, status)
+        get_exec_status(conn, status, skip_eof)
     end
   end
 
@@ -78,7 +86,8 @@ defmodule ControlNode.Host.SSH do
   Uploads `tar_file` to the `host` server via SSH and stores it at `file_path`
   on the remote server.
 
-  `file_path` should be absolute path on the remote server
+  `file_path` should be absolute path on the remote server.
+  `file_path` is created recursively in case it doesn't exist.
 
   ## Example
 
