@@ -43,6 +43,12 @@ defmodule ControlNode.Host do
   end
 
   defp extract_info(["epmd: Cannot connect to local epmd\n"]), do: {:error, :epmd_not_running}
+
+  defp extract_info([_ | _] = messages) do
+    info = messages |> Enum.reduce(%Info{}, fn m, acc_info -> do_extract_info(m, acc_info) end)
+    {:ok, info}
+  end
+
   defp extract_info(_), do: {:error, :unexpected_return_value}
 
   defp do_extract_info("epmd: up and running on port" <> msg, info) do
