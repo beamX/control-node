@@ -20,3 +20,13 @@ end
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/control_node](https://hexdocs.pm/control_node**.
+
+
+## SSHd config to enable tunneling
+
+```
+AllowTcpForwarding yes
+```
+
+**Known issue***
+SSH client cannot read new format of RSA keys, should be convered to PEM format

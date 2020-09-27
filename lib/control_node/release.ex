@@ -9,6 +9,8 @@ defmodule ControlNode.Release do
   # TODO: ensure that existing release is stopped on host if running before
   # starting the new release
   # using :init.stop(0)
+  @spec deploy(Spec.t(), Host.SSH.t(), Registry.Local.t(), binary) ::
+          :ok | {:error, Host.SSH.ExecStatus.t()}
   def deploy(%Spec{} = release_spec, host_spec, registry_spec, version) do
     # WARN: may not work if host OS is different from control-node OS
     host_release_dir = Path.join(release_spec.base_path, version)

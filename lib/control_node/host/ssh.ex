@@ -33,6 +33,10 @@ defmodule ControlNode.Host.SSH do
 
   @doc """
   Execute a given list of command or a bash script on the host vm
+
+  `skip_eof` : For commands which start long running processes `skip_eof` should
+  be set to `true`. This enable `exec` to return `ExecStatus` while the command
+  is left running on host.
   """
   @spec exec(t, list | binary) :: {:ok, ExecStatus.t()} | :failure | {:error, any}
   def exec(ssh_config, commands, skip_eof \\ false) do

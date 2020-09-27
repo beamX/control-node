@@ -6,22 +6,19 @@ defmodule ControlNode.ReleaseTest do
 
   setup do
     {:ok, ssh_config} = ssh_fixture()
-    %{ssh_config: ssh_config}
+
+    release_spec = %Release.Spec{
+      name: :service_app,
+      base_path: "/app/service_app",
+      start_strategy: :restart
+    }
+
+    registry_spec = %Registry.Local{path: Path.join(File.cwd!(), "example")}
+
+    %{ssh_config: ssh_config, release_spec: release_spec, registry_spec: registry_spec}
   end
 
   describe "deploy/4" do
-    setup do
-      release_spec = %Release.Spec{
-        name: :service_app,
-        base_path: "/app/service_app",
-        start_strategy: :restart
-      }
-
-      registry_spec = %Registry.Local{path: Path.join(File.cwd!(), "example")}
-
-      %{release_spec: release_spec, registry_spec: registry_spec}
-    end
-
     test "uploads tar and start release", %{
       release_spec: release_spec,
       ssh_config: ssh_config,
