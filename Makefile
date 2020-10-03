@@ -8,4 +8,4 @@ test:
 	mix local.rebar --force
 	mix local.hex --force
 	mix deps.get
-	SSH_HOST=openssh-server mix test --trace
+	SSH_HOST=openssh-server ERL_AFLAGS="-start_epmd false -epmd_module Elixir.ControlNode.Epmd" mix test --trace

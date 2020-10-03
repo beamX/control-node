@@ -22,6 +22,23 @@ defmodule ControlNode.Host do
     end
   end
 
+  def tunnel_to_service(%SSH{} = host_spec, service_port) do
+    with {:ok, ^service_port} <- SSH.tunnel_port_to_server(host_spec, service_port) do
+      :ok
+    end
+  end
+
+  def hostname(%SSH{} = host_spec) do
+    with {:ok, %SSH.ExecStatus{exit_status: :success, message: [hostname]}} <-
+           SSH.exec(host_spec, "hostname") do
+      {:ok, String.trim(hostname)}
+    end
+  end
+
+  @doc """
+  This implementation is brittle, should be enhanced by maybe directly talking to the EPMD
+  daemon
+  """
   @spec info(SSH.t(), binary) ::
           {:ok, Info.t()} | {:error, :epmd_not_running | :unexpected_return_value}
   def info(%SSH{} = host_spec, epmd_path) do
@@ -66,7 +83,7 @@ defmodule ControlNode.Host do
     |> String.trim()
     |> String.split()
     |> case do
-      ["name", service_name, "at", "port", service_port] ->
+      ["name", service_name, "at", "port", service_port | _rest] ->
         service_name = String.to_atom(service_name)
         service_port = String.to_integer(service_port)
 

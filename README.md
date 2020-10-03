@@ -28,5 +28,10 @@ be found at [https://hexdocs.pm/control_node](https://hexdocs.pm/control_node**.
 AllowTcpForwarding yes
 ```
 
+## Limiation
+
+- Only shortnames are allowed for release nodes
+
 **Known issue***
+
 SSH client cannot read new format of RSA keys, should be convered to PEM format
