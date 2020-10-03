@@ -6,6 +6,11 @@ defmodule ControlNode.Application do
   use Application
 
   def start(_type, _args) do
+    # Store (node, host, port) mappings used for connecting to remote nodes
+    :control_node_epmd = :ets.new(:control_node_epmd, [:named_table, :public])
+
+    ControlNode.Inet.configure_lookup()
+
     children = [
       # Starts a worker by calling: ControlNode.Worker.start_link(arg)
       # {ControlNode.Worker, arg}

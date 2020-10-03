@@ -23,4 +23,28 @@ defmodule ControlNode.Release do
       Host.init_release(host_spec, init_file, :start)
     end
   end
+
+  def setup_tunnel(release_spec, host_spec, version) do
+    host_release_dir = Path.join(release_spec.base_path, version)
+    epmd_path = Path.join(host_release_dir, "erts*/bin/epmd")
+
+    with {:ok, %Host.Info{epmd_port: _epmd_port, services: services}} <-
+           Host.info(host_spec, epmd_path) do
+      case Map.get(services, release_spec.name) do
+        nil ->
+          {:error, :release_not_running}
+
+        service_port when is_integer(service_port) ->
+          :ok = Host.tunnel_to_service(host_spec, service_port)
+          {:ok, service_port}
+      end
+    end
+  end
+
+  # WARN: assumes that tunnels have been properly setup
+  def connect(release_spec, hostname, cookie) do
+    node = :"#{release_spec.name}@#{hostname}"
+    true = Node.set_cookie(node, cookie)
+    Node.connect(node)
+  end
 end
