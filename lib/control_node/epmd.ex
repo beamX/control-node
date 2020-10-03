@@ -33,7 +33,7 @@ defmodule ControlNode.Epmd do
     :ets.insert(:control_node_epmd, {key, port})
   end
 
-  # Should not be invoked
+  # Should not be invoked because `address_please/3` already returns the port
   def port_please(_name, _ip) do
     raise RuntimeError, "unexpected call to #{__MODULE__}.port_please/2"
     # The distribution protocol version number has been 5 ever since
