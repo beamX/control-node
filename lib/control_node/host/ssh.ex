@@ -1,13 +1,27 @@
 defmodule ControlNode.Host.SSH do
   @enforce_keys [:host, :port, :user, :private_key_dir]
-  defstruct host: nil, port: 22, user: nil, private_key_dir: nil
+  defstruct host: nil, port: 22, user: nil, private_key_dir: nil, conn: nil, hostname: nil
 
-  @type t :: %__MODULE__{host: binary, port: integer, user: binary, private_key_dir: binary}
+  @type t :: %__MODULE__{
+          host: binary,
+          port: integer,
+          user: binary,
+          private_key_dir: binary,
+          conn: :ssh.connection_ref(),
+          hostname: binary
+        }
   @timeout :infinity
 
   defmodule ExecStatus do
     @type t :: %__MODULE__{exit_status: atom, exit_code: integer, message: list}
     defstruct exit_status: nil, exit_code: nil, message: []
+  end
+
+  @spec connect(t) :: t
+  def connect(ssh_spec) do
+    with {:ok, connection_ref} <- connect_host(ssh_spec) do
+      %{ssh_spec | conn: connection_ref}
+    end
   end
 
   @spec connect_host(t) :: {:ok, :ssh.connection_ref()} | {:error, term()}

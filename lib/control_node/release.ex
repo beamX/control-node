@@ -24,6 +24,23 @@ defmodule ControlNode.Release do
     end
   end
 
+  def stop(%Spec{} = release_spec, host_spec) do
+    with {:ok, node} <- to_node_name(release_spec, host_spec) do
+      if is_connected?(node) do
+        :rpc.call(node, :init, :stop, [0])
+      else
+        {:error, :node_not_connected}
+      end
+    end
+  end
+
+  defp is_connected?(node) do
+    connected_nodes = :erlang.nodes(:connected)
+    node in connected_nodes
+  end
+
+  @spec setup_tunnel(Spec.t(), Host.SSH.t(), binary) ::
+          {:ok, integer} | {:error, :release_not_running}
   def setup_tunnel(release_spec, host_spec, version) do
     host_release_dir = Path.join(release_spec.base_path, version)
     epmd_path = Path.join(host_release_dir, "erts*/bin/epmd")
@@ -42,9 +59,16 @@ defmodule ControlNode.Release do
   end
 
   # WARN: assumes that tunnels have been properly setup
-  def connect(release_spec, hostname, cookie) do
-    node = :"#{release_spec.name}@#{hostname}"
-    true = Node.set_cookie(node, cookie)
-    Node.connect(node)
+  @spec connect(Spec.t(), Host.SSH.t(), atom) :: true | false
+  def connect(release_spec, host_spec, cookie) do
+    with {:ok, node} <- to_node_name(release_spec, host_spec) do
+      true = Node.set_cookie(node, cookie)
+      Node.connect(node)
+    end
   end
+
+  defp to_node_name(_release_spec, %Host.SSH{hostname: nil}), do: {:error, :hostname_not_found}
+
+  defp to_node_name(release_spec, host_spec),
+    do: {:ok, :"#{release_spec.name}@#{host_spec.hostname}"}
 end
