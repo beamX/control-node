@@ -27,16 +27,11 @@ defmodule ControlNode.ReleaseTest do
       :ok = Release.deploy(release_spec, ssh_config, registry_spec, "0.1.0")
 
       # ensure service is started
-      assert_until(fn ->
-        {:ok, %SSH.ExecStatus{exit_status: exit_status}} =
-          SSH.exec(ssh_config, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} pid")
-
-        exit_status == :success
-      end)
+      ensure_started(release_spec, ssh_config)
 
       # setup tunnel to the service
       {:ok, service_port} = Release.setup_tunnel(release_spec, ssh_config, "0.1.0")
-      {:ok, hostname} = Host.hostname(ssh_config)
+      {:ok, %Host.SSH{hostname: hostname} = ssh_config} = Host.hostname(ssh_config)
 
       # NOTE: Configure host config for inet
       # This config will be used by BEAM to resolve `hostname`
@@ -51,13 +46,58 @@ defmodule ControlNode.ReleaseTest do
       {:ok, _pid} = :net_kernel.start([:control_node_test, :shortnames])
 
       cookie = :"YFWZXAOJGTABHNGIT6KVAC2X6TEHA6WCIRDKSLFD6JZWRC4YHMMA===="
-      true = Release.connect(release_spec, hostname, cookie)
+      true = Release.connect(release_spec, ssh_config, cookie)
       assert :pong == Node.ping(:"#{release_spec.name}@#{hostname}")
 
-      :net_kernel.stop()
+      Release.stop(release_spec, ssh_config)
 
-      {:ok, %SSH.ExecStatus{exit_status: :success}} =
-        SSH.exec(ssh_config, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} stop")
+      ensure_stopped(release_spec, ssh_config)
+      :net_kernel.stop()
     end
+  end
+
+  describe "setup_tunnel/3" do
+    test "return error when release is not running", %{
+      release_spec: release_spec,
+      ssh_config: ssh_config
+    } do
+      assert {:error, :release_not_running} ==
+               Release.setup_tunnel(release_spec, ssh_config, "0.1.0")
+    end
+  end
+
+  describe "stop/2" do
+    test "return error when node is not connected", %{
+      release_spec: release_spec,
+      ssh_config: ssh_config
+    } do
+      ssh_config = %SSH{ssh_config | hostname: :service_app@somehost}
+      assert {:error, :node_not_connected} == Release.stop(release_spec, ssh_config)
+    end
+
+    test "return error hostname is nil", %{
+      release_spec: release_spec,
+      ssh_config: ssh_config
+    } do
+      assert {:error, :hostname_not_found} == Release.stop(release_spec, ssh_config)
+    end
+  end
+
+  defp ensure_started(release_spec, host_spec) do
+    assert_until(fn ->
+      {:ok, %SSH.ExecStatus{exit_status: exit_status}} =
+        SSH.exec(host_spec, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} pid")
+
+      exit_status == :success
+    end)
+  end
+
+  defp ensure_stopped(release_spec, host_spec) do
+    assert_until(fn ->
+      {:ok, %SSH.ExecStatus{message: message}} =
+        SSH.exec(host_spec, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} pid")
+
+      message == ["--rpc-eval : RPC failed with reason :nodedown\n"]
+    end)
   end
 end

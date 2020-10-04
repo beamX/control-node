@@ -6,8 +6,13 @@ defmodule ControlNode.Host do
     defstruct epmd_port: nil, services: %{}
   end
 
+  @spec connect(SSH.t()) :: SSH.t()
+  def connect(host_spec), do: SSH.connect(host_spec)
+
+  @spec upload_file(SSH.t(), binary, binary) :: :ok
   def upload_file(%SSH{} = host_spec, path, file), do: SSH.upload_file(host_spec, path, file)
 
+  @spec extract_tar(SSH.t(), binary, binary) :: :ok | :failure | {:error, any}
   def extract_tar(%SSH{} = host_spec, release_path, release_dir) do
     with {:ok, %SSH.ExecStatus{exit_code: 0}} <-
            SSH.exec(host_spec, "tar -xf #{release_path} -C #{release_dir}") do
@@ -15,6 +20,7 @@ defmodule ControlNode.Host do
     end
   end
 
+  @spec init_release(SSH.t(), binary, atom) :: :ok | :failure | {:error, any}
   def init_release(%SSH{} = host_spec, init_file, command) do
     with {:ok, %SSH.ExecStatus{exit_code: 0}} <-
            SSH.exec(host_spec, "nohup #{init_file} #{command} &", true) do
@@ -22,16 +28,18 @@ defmodule ControlNode.Host do
     end
   end
 
+  @spec tunnel_to_service(SSH.t(), integer) :: :ok
   def tunnel_to_service(%SSH{} = host_spec, service_port) do
     with {:ok, ^service_port} <- SSH.tunnel_port_to_server(host_spec, service_port) do
       :ok
     end
   end
 
+  @spec hostname(SSH.t()) :: {:ok, binary}
   def hostname(%SSH{} = host_spec) do
     with {:ok, %SSH.ExecStatus{exit_status: :success, message: [hostname]}} <-
            SSH.exec(host_spec, "hostname") do
-      {:ok, String.trim(hostname)}
+      {:ok, %SSH{host_spec | hostname: String.trim(hostname)}}
     end
   end
 
