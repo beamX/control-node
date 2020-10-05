@@ -23,17 +23,12 @@ defmodule ControlNode.HostTest do
         SSH.exec(ssh_config, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} stop")
     end)
 
-    epmd_path = "#{release_spec.base_path}/0.1.0/erts*/bin/epmd"
-
-    %{ssh_config: ssh_config, epmd_path: epmd_path}
+    %{ssh_config: ssh_config}
   end
 
-  describe "info/2" do
-    test "list epmd and release info for the host", %{
-      ssh_config: ssh_config,
-      epmd_path: epmd_path
-    } do
-      assert {:ok, %Host.Info{}} = Host.info(ssh_config, epmd_path)
+  describe "info/1" do
+    test "list epmd and release info for the host", %{ssh_config: ssh_config} do
+      assert {:ok, %Host.Info{services: %{service_app: _port}}} = Host.info(ssh_config)
     end
   end
 

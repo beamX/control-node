@@ -1,10 +1,17 @@
 defmodule ControlNode.Host.SSH do
   @enforce_keys [:host, :port, :user, :private_key_dir]
-  defstruct host: nil, port: 22, user: nil, private_key_dir: nil, conn: nil, hostname: nil
+  defstruct host: nil,
+            port: 22,
+            epmd_port: 4369,
+            user: nil,
+            private_key_dir: nil,
+            conn: nil,
+            hostname: nil
 
   @type t :: %__MODULE__{
           host: binary,
           port: integer,
+          epmd_port: integer,
           user: binary,
           private_key_dir: binary,
           conn: :ssh.connection_ref(),
@@ -39,9 +46,17 @@ defmodule ControlNode.Host.SSH do
     |> :ssh.connect(ssh_config.port, ssh_options)
   end
 
+  @spec tunnel_port_to_server(t, :inet.port_number()) ::
+          {:ok, :inet.port_number()} | {:error, any}
   def tunnel_port_to_server(ssh_config, port) do
+    tunnel_port_to_server(ssh_config, port, port)
+  end
+
+  @spec tunnel_port_to_server(t, :inet.port_number(), :inet.port_number()) ::
+          {:ok, :inet.port_number()} | {:error, any}
+  def tunnel_port_to_server(ssh_config, local_port, remote_port) do
     with {:ok, conn} <- connect_host(ssh_config) do
-      :ssh.tcpip_tunnel_to_server(conn, '127.0.0.1', port, '127.0.0.1', port)
+      :ssh.tcpip_tunnel_to_server(conn, '127.0.0.1', local_port, '127.0.0.1', remote_port)
     end
   end
 

@@ -18,7 +18,7 @@ defmodule ControlNode.ReleaseTest do
     %{ssh_config: ssh_config, release_spec: release_spec, registry_spec: registry_spec}
   end
 
-  describe "deploy/4, connect/3" do
+  describe "deploy/4, connect/3, setup_tunnel/3" do
     test "uploads tar host, starts release and monitors it", %{
       release_spec: release_spec,
       ssh_config: ssh_config,
@@ -52,17 +52,11 @@ defmodule ControlNode.ReleaseTest do
       Release.stop(release_spec, ssh_config)
 
       ensure_stopped(release_spec, ssh_config)
-      :net_kernel.stop()
-    end
-  end
 
-  describe "setup_tunnel/3" do
-    test "return error when release is not running", %{
-      release_spec: release_spec,
-      ssh_config: ssh_config
-    } do
       assert {:error, :release_not_running} ==
                Release.setup_tunnel(release_spec, ssh_config, "0.1.0")
+
+      :net_kernel.stop()
     end
   end
 
