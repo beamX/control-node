@@ -1,5 +1,7 @@
 defmodule ControlNode.Host do
   alias ControlNode.Host.SSH
+  @epmd_names 110
+  @int16_1 [0, 1]
 
   defmodule Info do
     @type t :: %__MODULE__{epmd_port: integer, services: map}
@@ -43,59 +45,61 @@ defmodule ControlNode.Host do
     end
   end
 
-  @doc """
-  This implementation is brittle, should be enhanced by maybe directly talking to the EPMD
-  daemon
-  """
-  @spec info(SSH.t(), binary) ::
-          {:ok, Info.t()} | {:error, :epmd_not_running | :unexpected_return_value}
-  def info(%SSH{} = host_spec, epmd_path) do
-    with {:ok, %SSH.ExecStatus{exit_code: 0, message: message}} <-
-           SSH.exec(host_spec, "#{epmd_path} -names") do
-      extract_info(message)
+  @spec info(SSH.t()) :: {:ok, Info.t()} | {:error, :address | :no_data}
+  def info(host_spec), do: epmd_list_names(host_spec)
+
+  defp epmd_list_names(%SSH{} = host_spec) do
+    with {:ok, local_port} <- SSH.tunnel_port_to_server(host_spec, 0, host_spec.epmd_port) do
+      {:ok, socket} = :gen_tcp.connect({127, 0, 0, 1}, local_port, [:inet])
+
+      :gen_tcp.send(socket, [@int16_1, @epmd_names])
+      |> case do
+        :ok ->
+          receive do
+            {:tcp, socket, [_p0, _p1, _p2, _p3 | t]} ->
+              services =
+                receive_names(socket, t)
+                |> scan_names()
+
+              {:ok, %Info{services: services}}
+
+            {:tcp_closed, _socket} ->
+              {:error, :no_data}
+          end
+
+        _ ->
+          {:error, :address}
+      end
     end
   end
 
-  defp extract_info(["epmd: up and running on port" <> _ = message]) do
-    info =
-      message
-      |> String.split("\n")
-      |> Enum.filter(fn i -> i != "" end)
-      |> Enum.reduce(%Info{}, fn m, acc_info -> do_extract_info(m, acc_info) end)
+  defp receive_names(socket, acc) do
+    receive do
+      {:tcp, ^socket, data} ->
+        receive_names(socket, acc ++ data)
 
-    {:ok, info}
+      {:tcp_closed, ^socket} ->
+        {:ok, acc}
+    end
   end
 
-  defp extract_info(["epmd: Cannot connect to local epmd\n"]), do: {:error, :epmd_not_running}
-
-  defp extract_info([_ | _] = messages) do
-    info = messages |> Enum.reduce(%Info{}, fn m, acc_info -> do_extract_info(m, acc_info) end)
-    {:ok, info}
+  defp scan_names({:ok, response}) do
+    response
+    |> :erlang.list_to_binary()
+    |> String.split("\n")
+    |> Enum.filter(fn x -> x != "" end)
+    |> Enum.map(&scan_name/1)
+    |> Enum.filter(fn x -> x != nil end)
+    |> :maps.from_list()
   end
 
-  defp extract_info(_), do: {:error, :unexpected_return_value}
+  defp scan_name(info) do
+    case String.split(info) do
+      ["name", service_name, "at", "port", service_port] ->
+        {:erlang.binary_to_atom(service_name, :utf8), :erlang.binary_to_integer(service_port)}
 
-  defp do_extract_info("epmd: up and running on port" <> msg, info) do
-    epmd_port =
-      msg
-      |> String.trim()
-      |> String.split()
-      |> List.first()
-      |> String.to_integer()
-
-    %{info | epmd_port: epmd_port}
-  end
-
-  defp do_extract_info("name " <> _ = msg, %Info{services: services} = info) do
-    msg
-    |> String.trim()
-    |> String.split()
-    |> case do
-      ["name", service_name, "at", "port", service_port | _rest] ->
-        service_name = String.to_atom(service_name)
-        service_port = String.to_integer(service_port)
-
-        %{info | services: Map.put(services, service_name, service_port)}
+      _ ->
+        nil
     end
   end
 end

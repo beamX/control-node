@@ -43,10 +43,8 @@ defmodule ControlNode.Release do
           {:ok, integer} | {:error, :release_not_running}
   def setup_tunnel(release_spec, host_spec, version) do
     host_release_dir = Path.join(release_spec.base_path, version)
-    epmd_path = Path.join(host_release_dir, "erts*/bin/epmd")
 
-    with {:ok, %Host.Info{epmd_port: _epmd_port, services: services}} <-
-           Host.info(host_spec, epmd_path) do
+    with {:ok, %Host.Info{services: services}} <- Host.info(host_spec) do
       case Map.get(services, release_spec.name) do
         nil ->
           {:error, :release_not_running}
