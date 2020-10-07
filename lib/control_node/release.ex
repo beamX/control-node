@@ -6,9 +6,12 @@ defmodule ControlNode.Release do
     defstruct name: nil, base_path: nil, start_strategy: :restart
   end
 
-  # TODO: ensure that existing release is stopped on host if running before
-  # starting the new release
-  # using :init.stop(0)
+  @doc """
+  Deploys a release to the host specified by `host_spec`
+
+  NOTE: Prior to calling this function it should be ensured that no release with
+  name `release_spec.name` is running on host specified by `host_spec`
+  """
   @spec deploy(Spec.t(), Host.SSH.t(), Registry.Local.t(), binary) ::
           :ok | {:error, Host.SSH.ExecStatus.t()}
   def deploy(%Spec{} = release_spec, host_spec, registry_spec, version) do
@@ -24,6 +27,10 @@ defmodule ControlNode.Release do
     end
   end
 
+  @doc """
+  Stops the release running on `host_spec`
+  """
+  @spec stop(Spec.t(), Host.SSH.t()) :: term | {:badrpc, term}
   def stop(%Spec{} = release_spec, host_spec) do
     with {:ok, node} <- to_node_name(release_spec, host_spec) do
       if is_connected?(node) do
@@ -39,11 +46,16 @@ defmodule ControlNode.Release do
     node in connected_nodes
   end
 
-  @spec setup_tunnel(Spec.t(), Host.SSH.t(), binary) ::
-          {:ok, integer} | {:error, :release_not_running}
-  def setup_tunnel(release_spec, host_spec, version) do
-    host_release_dir = Path.join(release_spec.base_path, version)
+  @doc """
+  Creates a SSH tunnel to remote service and forwards a local port to
+  the remote service port.
 
+  NOTE: remote service's port is the one registered with the EPMD service
+  running on the remote host
+  """
+  @spec setup_tunnel(Spec.t(), Host.SSH.t()) ::
+          {:ok, integer} | {:error, :release_not_running}
+  def setup_tunnel(release_spec, host_spec) do
     with {:ok, %Host.Info{services: services}} <- Host.info(host_spec) do
       case Map.get(services, release_spec.name) do
         nil ->
@@ -56,7 +68,11 @@ defmodule ControlNode.Release do
     end
   end
 
-  # WARN: assumes that tunnels have been properly setup
+  @doc """
+  Connects to a remote release via `Node.connect/1`
+
+  NOTE: Assumes that a SSH tunnel has been setup to the remote service
+  """
   @spec connect(Spec.t(), Host.SSH.t(), atom) :: true | false
   def connect(release_spec, host_spec, cookie) do
     with {:ok, node} <- to_node_name(release_spec, host_spec) do
