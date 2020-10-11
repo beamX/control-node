@@ -11,6 +11,9 @@ defmodule ControlNode.Host do
   @spec connect(SSH.t()) :: SSH.t()
   def connect(host_spec), do: SSH.connect(host_spec)
 
+  @spec disconnect(SSH.t()) :: SSH.t()
+  def disconnect(host_spec), do: SSH.disconnect(host_spec)
+
   @spec upload_file(SSH.t(), binary, binary) :: :ok
   def upload_file(%SSH{} = host_spec, path, file), do: SSH.upload_file(host_spec, path, file)
 
@@ -46,7 +49,16 @@ defmodule ControlNode.Host do
   end
 
   @spec info(SSH.t()) :: {:ok, Info.t()} | {:error, :address | :no_data}
-  def info(host_spec), do: epmd_list_names(host_spec)
+  def info(host_spec) do
+    host_spec = connect(%{host_spec | conn: nil})
+
+    with {:ok, info} <- epmd_list_names(host_spec) do
+      disconnect(host_spec)
+      {:ok, info}
+    end
+  end
+
+  # def info(host_spec), do: epmd_list_names(host_spec)
 
   defp epmd_list_names(%SSH{} = host_spec) do
     with {:ok, local_port} <- SSH.tunnel_port_to_server(host_spec, 0, host_spec.epmd_port) do

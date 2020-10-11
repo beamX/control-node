@@ -5,14 +5,8 @@ defmodule ControlNode.HostTest do
   alias ControlNode.{Release, Registry, Host}
 
   setup do
-    {:ok, host_spec} = ssh_fixture()
-
-    release_spec = %Release.Spec{
-      name: :service_app,
-      base_path: "/app/service_app",
-      start_strategy: :restart
-    }
-
+    host_spec = ssh_fixture()
+    release_spec = %Release.Spec{name: :service_app, base_path: "/app/service_app"}
     registry_spec = %Registry.Local{path: Path.join(File.cwd!(), "example")}
 
     :ok = Release.deploy(release_spec, host_spec, registry_spec, "0.1.0")

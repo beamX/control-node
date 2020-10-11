@@ -24,6 +24,8 @@ defmodule ControlNode.Host.SSH do
     defstruct exit_status: nil, exit_code: nil, message: []
   end
 
+  alias __MODULE__
+
   @spec connect(t) :: t
   def connect(ssh_spec) do
     with {:ok, connection_ref} <- connect_host(ssh_spec) do
@@ -31,6 +33,7 @@ defmodule ControlNode.Host.SSH do
     end
   end
 
+  # TODO: start checking if `conn: nil` is passed and only then connect
   @spec connect_host(t) :: {:ok, :ssh.connection_ref()} | {:error, term()}
   defp connect_host(ssh_config) do
     ssh_options = [
@@ -46,6 +49,14 @@ defmodule ControlNode.Host.SSH do
     |> :ssh.connect(ssh_config.port, ssh_options)
   end
 
+  def disconnect(%{conn: nil} = ssh_config), do: ssh_config
+
+  def disconnect(%{conn: conn} = ssh_config) do
+    with :ok <- :ssh.close(conn) do
+      %{ssh_config | conn: nil}
+    end
+  end
+
   @spec tunnel_port_to_server(t, :inet.port_number()) ::
           {:ok, :inet.port_number()} | {:error, any}
   def tunnel_port_to_server(ssh_config, port) do
@@ -54,10 +65,10 @@ defmodule ControlNode.Host.SSH do
 
   @spec tunnel_port_to_server(t, :inet.port_number(), :inet.port_number()) ::
           {:ok, :inet.port_number()} | {:error, any}
-  def tunnel_port_to_server(ssh_config, local_port, remote_port) do
-    with {:ok, conn} <- connect_host(ssh_config) do
-      :ssh.tcpip_tunnel_to_server(conn, '127.0.0.1', local_port, '127.0.0.1', remote_port)
-    end
+  def tunnel_port_to_server(%{conn: nil}, _local_port, _remote_port), do: {:error, :not_connected}
+
+  def tunnel_port_to_server(%SSH{conn: conn} = _ssh_config, local_port, remote_port) do
+    :ssh.tcpip_tunnel_to_server(conn, '127.0.0.1', local_port, '127.0.0.1', remote_port)
   end
 
   @doc """
