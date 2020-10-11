@@ -8,14 +8,12 @@ defmodule ControlNode.TestUtils do
     # to the service container running SSH server
     host = System.get_env("SSH_HOST", "localhost")
 
-    ssh_config = %SSH{
+    %SSH{
       host: host,
       port: 2222,
       user: "linuxserver.io",
       private_key_dir: private_key_dir
     }
-
-    {:ok, ssh_config}
   end
 
   defp with_fixture_path(path) do

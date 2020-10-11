@@ -5,24 +5,33 @@ defmodule ControlNode.ReleaseTest do
   alias ControlNode.{Release, Host, Registry, Inet}
 
   setup do
-    {:ok, host_spec} = ssh_fixture()
-
-    release_spec = %Release.Spec{
-      name: :service_app,
-      base_path: "/app/service_app",
-      start_strategy: :restart
-    }
-
+    host_spec = ssh_fixture()
+    release_spec = %Release.Spec{name: :service_app, base_path: "/app/service_app"}
     registry_spec = %Registry.Local{path: Path.join(File.cwd!(), "example")}
+    cookie = :"YFWZXAOJGTABHNGIT6KVAC2X6TEHA6WCIRDKSLFD6JZWRC4YHMMA===="
 
-    %{host_spec: host_spec, release_spec: release_spec, registry_spec: registry_spec}
+    # start erlang distribution
+    # net_kernel starts the erlang distribution which during its start process
+    # registers with the epmd daemon. It is expected that there will be no
+    # EPMD daemon running as it should be replaced with `ControlNode.Epmd`
+    {:ok, _pid} = :net_kernel.start([:control_node_test, :shortnames])
+
+    on_exit(fn -> :net_kernel.stop() end)
+
+    %{
+      host_spec: host_spec,
+      release_spec: release_spec,
+      registry_spec: registry_spec,
+      cookie: cookie
+    }
   end
 
   describe "deploy/4, connect/3, setup_tunnel/3" do
     test "uploads tar host, starts release and monitors it", %{
       release_spec: release_spec,
       host_spec: host_spec,
-      registry_spec: registry_spec
+      registry_spec: registry_spec,
+      cookie: cookie
     } do
       :ok = Release.deploy(release_spec, host_spec, registry_spec, "0.1.0")
 
@@ -30,33 +39,47 @@ defmodule ControlNode.ReleaseTest do
       ensure_started(release_spec, host_spec)
 
       # setup tunnel to the service
-      {:ok, service_port} = Release.setup_tunnel(release_spec, host_spec)
+      {:ok, service_port} = Release.setup_tunnel(release_spec, Host.connect(host_spec))
       {:ok, %Host.SSH{hostname: hostname} = host_spec} = Host.hostname(host_spec)
 
       # NOTE: Configure host config for inet
       # This config will be used by BEAM to resolve `hostname`
       Inet.add_alias_for_localhost(hostname)
-
       ControlNode.Epmd.register_release(release_spec.name, hostname, service_port)
 
-      # start erlang distribution
-      # net_kernel starts the erlang distribution which during its start process
-      # registers with the epmd daemon. It is expected that there will be no
-      # EPMD daemon running as it should be replaced with `ControlNode.Epmd`
-      {:ok, _pid} = :net_kernel.start([:control_node_test, :shortnames])
-
-      cookie = :"YFWZXAOJGTABHNGIT6KVAC2X6TEHA6WCIRDKSLFD6JZWRC4YHMMA===="
       true = Release.connect(release_spec, host_spec, cookie)
       assert :pong == Node.ping(:"#{release_spec.name}@#{hostname}")
 
       Release.stop(release_spec, host_spec)
-
       ensure_stopped(release_spec, host_spec)
 
       assert {:error, :release_not_running} ==
-               Release.setup_tunnel(release_spec, host_spec)
+               Release.setup_tunnel(release_spec, Host.connect(host_spec))
+    end
+  end
 
-      :net_kernel.stop()
+  describe "initialize_state/3" do
+    test "Setup tunnel and return state of service on remote host", %{
+      release_spec: release_spec,
+      host_spec: host_spec,
+      registry_spec: registry_spec,
+      cookie: cookie
+    } do
+      :ok = Release.deploy(release_spec, host_spec, registry_spec, "0.1.0")
+
+      # ensure service is started
+      ensure_started(release_spec, host_spec)
+
+      assert %Release.State{host: host_spec, version: "0.1.0", status: :running} =
+               Release.initialize_state(release_spec, host_spec, cookie)
+
+      assert :pong == Node.ping(:"#{release_spec.name}@#{host_spec.hostname}")
+
+      Release.stop(release_spec, host_spec)
+      ensure_stopped(release_spec, host_spec)
+
+      assert %Release.State{version: nil, status: :not_running} =
+               Release.initialize_state(release_spec, host_spec, cookie)
     end
   end
 

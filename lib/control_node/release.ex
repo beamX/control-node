@@ -1,9 +1,87 @@
 defmodule ControlNode.Release do
-  alias ControlNode.{Host, Registry}
+  alias ControlNode.{Host, Registry, Epmd, Inet}
 
   defmodule Spec do
-    @type t :: %__MODULE__{name: atom, base_path: String.t(), start_strategy: atom}
-    defstruct name: nil, base_path: nil, start_strategy: :restart
+    @type t :: %__MODULE__{name: atom, base_path: String.t()}
+    defstruct name: nil, base_path: nil
+  end
+
+  defmodule State do
+    defstruct host: nil, version: nil, status: nil, port: nil
+  end
+
+  defmacro __using__(opts) do
+    quote bind_quoted: [opts: opts] do
+      @release_name opts[:spec].name
+      @release_spec opts[:spec]
+
+      @behaviour :gen_statem
+      alias ControlNode.Release
+      alias ControlNode.Namespace
+
+      def resolve_version(namespace_tag, version) do
+        :gen_statem.call(name(namespace_tag), {:resolve_version, version})
+      end
+
+      defp name(tag), do: :"#{@release_name}_#{tag}"
+
+      def start_link(namespace_spec) do
+        name = {:local, name(namespace_spec.tag)}
+        :gen_statem.start_link(name, __MODULE__, namespace_spec, [])
+      end
+
+      @impl :gen_statem
+      def callback_mode, do: :handle_event_function
+
+      @impl :gen_statem
+      def init(namespace_spec) do
+        data = %{
+          release_spec: @release_spec,
+          namespace_spec: namespace_spec,
+          namespace_state: nil
+        }
+
+        {state, actions} = Namespace.Workflow.init()
+        {:ok, state, data, actions}
+      end
+    end
+  end
+
+  def initialize_state(release_spec, host_spec, cookie) do
+    with {:ok, %Host.Info{services: services}} <- Host.info(host_spec) do
+      case Map.get(services, release_spec.name) do
+        nil ->
+          %State{host: host_spec, status: :not_running}
+
+        service_port ->
+          with %Host.SSH{} = host_spec <- Host.connect(host_spec),
+               {:ok, host_spec} <- Host.hostname(host_spec) do
+            # register node locally
+            register_node(release_spec, host_spec, service_port)
+
+            # Setup tunnel to release port on host
+            :ok = Host.tunnel_to_service(host_spec, service_port)
+            true = connect(release_spec, host_spec, cookie)
+
+            {:ok, version} = get_version(release_spec, host_spec)
+
+            %State{host: host_spec, version: version, status: :running, port: service_port}
+          end
+      end
+    end
+  end
+
+  defp register_node(release_spec, host_spec, service_port) do
+    # NOTE: Configure host config for inet
+    # This config will be used by BEAM to resolve `hostname`
+    Inet.add_alias_for_localhost(host_spec.hostname)
+    Epmd.register_release(release_spec.name, host_spec.hostname, service_port)
+  end
+
+  defp get_version(release_spec, host_spec) do
+    {:ok, node} = to_node_name(release_spec, host_spec)
+    {:ok, vsn} = :rpc.call(node, :application, :get_key, [release_spec.name, :vsn])
+    {:ok, :erlang.list_to_binary(vsn)}
   end
 
   @doc """

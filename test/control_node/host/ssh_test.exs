@@ -4,8 +4,7 @@ defmodule ControlNode.Host.SSHTest do
   alias ControlNode.Host.SSH
 
   setup do
-    {:ok, ssh_config} = ssh_fixture()
-    %{ssh_config: ssh_config}
+    %{ssh_config: ssh_fixture()}
   end
 
   describe "upload_file/2" do
@@ -67,12 +66,19 @@ defmodule ControlNode.Host.SSHTest do
   end
 
   describe "tunnel_port_to_server/3" do
+    setup %{ssh_config: ssh_config} do
+      ssh_config = SSH.connect(ssh_config)
+      on_exit(fn -> SSH.disconnect(ssh_config) end)
+
+      %{ssh_config: ssh_config}
+    end
+
     test "successfully forwards packets from local port to remote port", %{ssh_config: ssh_config} do
-      pid = spawn(fn -> SSH.exec(ssh_config, ["nc -l -p 8989 > /tmp/tunnel_output.txt &"]) end)
+      pid = spawn(fn -> SSH.exec(ssh_config, ["nc -l -p 8787 > /tmp/tunnel_output.txt &"]) end)
       ensure_nc_server_up(ssh_config)
 
-      {:ok, 8989} = SSH.tunnel_port_to_server(ssh_config, 8989)
-      tcp_local_send('hello world', 8989)
+      {:ok, local_port} = SSH.tunnel_port_to_server(ssh_config, 0, 8787)
+      tcp_local_send('hello world', local_port)
 
       assert_until(fn ->
         {:ok, "hello world"} == File.read("/tmp/tunnel_output.txt")
@@ -82,6 +88,11 @@ defmodule ControlNode.Host.SSHTest do
       Process.exit(pid, :kill)
       SSH.exec(ssh_config, ["pkill nc"])
       File.rm_rf!("/tmp/tunnel_output.txt")
+    end
+
+    test "returns error if ssh connection is not passed with %SSH{}", %{ssh_config: ssh_config} do
+      assert {:error, :not_connected} ==
+               SSH.tunnel_port_to_server(%{ssh_config | conn: nil}, 8989)
     end
   end
 
