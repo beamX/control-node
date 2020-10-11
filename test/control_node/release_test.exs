@@ -77,13 +77,7 @@ defmodule ControlNode.ReleaseTest do
 
       Release.stop(release_spec, host_spec)
       ensure_stopped(release_spec, host_spec)
-    end
 
-    test "returns %State{status: :not_running} when release is not running", %{
-      release_spec: release_spec,
-      host_spec: host_spec,
-      cookie: cookie
-    } do
       assert %Release.State{version: nil, status: :not_running} =
                Release.initialize_state(release_spec, host_spec, cookie)
     end

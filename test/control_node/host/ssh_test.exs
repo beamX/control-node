@@ -74,11 +74,11 @@ defmodule ControlNode.Host.SSHTest do
     end
 
     test "successfully forwards packets from local port to remote port", %{ssh_config: ssh_config} do
-      pid = spawn(fn -> SSH.exec(ssh_config, ["nc -l -p 8989 > /tmp/tunnel_output.txt &"]) end)
+      pid = spawn(fn -> SSH.exec(ssh_config, ["nc -l -p 8787 > /tmp/tunnel_output.txt &"]) end)
       ensure_nc_server_up(ssh_config)
 
-      {:ok, 8989} = SSH.tunnel_port_to_server(ssh_config, 8989)
-      tcp_local_send('hello world', 8989)
+      {:ok, local_port} = SSH.tunnel_port_to_server(ssh_config, 0, 8787)
+      tcp_local_send('hello world', local_port)
 
       assert_until(fn ->
         {:ok, "hello world"} == File.read("/tmp/tunnel_output.txt")
