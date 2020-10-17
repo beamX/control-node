@@ -1,4 +1,5 @@
 defmodule ControlNode.Release do
+  require Logger
   alias ControlNode.{Host, Registry, Epmd, Inet}
 
   defmodule Spec do
@@ -7,6 +8,7 @@ defmodule ControlNode.Release do
   end
 
   defmodule State do
+    @type t :: %__MODULE__{host: Host.SSH.t(), version: String.t(), status: atom, port: integer}
     defstruct host: nil, version: nil, status: nil, port: nil
   end
 
@@ -35,7 +37,7 @@ defmodule ControlNode.Release do
 
       @impl :gen_statem
       def init(namespace_spec) do
-        data = %{
+        data = %Namespace.Workflow.Data{
           release_spec: @release_spec,
           namespace_spec: namespace_spec,
           namespace_state: nil
@@ -61,12 +63,58 @@ defmodule ControlNode.Release do
 
             # Setup tunnel to release port on host
             :ok = Host.tunnel_to_service(host_spec, service_port)
-            true = connect(release_spec, host_spec, cookie)
+            true = connect_and_monitor(release_spec, host_spec, cookie)
 
             {:ok, version} = get_version(release_spec, host_spec)
 
             %State{host: host_spec, version: version, status: :running, port: service_port}
           end
+      end
+    end
+  end
+
+  def terminate_state(%State{host: host_spec} = release_state) do
+    try do
+      Host.disconnect(host_spec)
+    catch
+      error, message ->
+        Logger.error("Failed to terminate state",
+          release_state: release_state,
+          error: error,
+          message: message
+        )
+    end
+  end
+
+  def terminate(release_spec, %State{host: host_spec}) do
+    node = to_node_name(release_spec, host_spec)
+
+    # demonitor node so that {:nodedown, node} message is not generated when the
+    # node is stopped
+    true = Node.monitor(node, false)
+
+    # stop node
+    :rpc.call(node, :init, :stop, [0])
+    true = check_until_stopped(release_spec, host_spec)
+
+    :ok
+  end
+
+  defp check_until_stopped(release_spec, host_spec) do
+    Enum.any?(1..50, fn ->
+      :timer.sleep(100)
+      {:error, :release_not_running} == node_info(release_spec, host_spec)
+    end)
+  end
+
+  defp node_info(release_spec, host_spec) do
+    with {:ok, %Host.Info{services: services}} <- Host.info(host_spec) do
+      case Map.get(services, release_spec.name) do
+        nil ->
+          {:error, :release_not_running}
+
+        service_port when is_integer(service_port) ->
+          {:ok, service_port}
       end
     end
   end
@@ -146,16 +194,26 @@ defmodule ControlNode.Release do
     end
   end
 
+  def connect_and_monitor(release_spec, host_spec, cookie) do
+    connect(release_spec, host_spec, cookie, true)
+  end
+
   @doc """
   Connects to a remote release via `Node.connect/1`
 
   NOTE: Assumes that a SSH tunnel has been setup to the remote service
   """
   @spec connect(Spec.t(), Host.SSH.t(), atom) :: true | false
-  def connect(release_spec, host_spec, cookie) do
+  def connect(release_spec, host_spec, cookie, monitor_node? \\ false) do
     with {:ok, node} <- to_node_name(release_spec, host_spec) do
       true = Node.set_cookie(node, cookie)
-      Node.connect(node)
+      true = Node.connect(node)
+
+      if monitor_node? do
+        Node.monitor(node, true)
+      else
+        true
+      end
     end
   end
 

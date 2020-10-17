@@ -1,26 +1,13 @@
 defmodule ControlNode.Namespace.InitializeTest do
   use ExUnit.Case, async: false
   import Mock
-  import ControlNode.TestUtils
-  alias ControlNode.{Release, Registry, Namespace}
+  import ControlNode.Factory
+  alias ControlNode.{Release, Namespace}
   alias Namespace.Initialize
 
-  setup do
-    registry_spec = %Registry.Local{path: Path.join(File.cwd!(), "example")}
-    release_spec = %Release.Spec{name: :service_app, base_path: "/app/service_app"}
-
-    %{registry_spec: registry_spec, release_spec: release_spec}
-  end
-
   describe "handle_event/4" do
-    test "transitions to :deploy when release is running", %{
-      registry_spec: registry_spec,
-      release_spec: release_spec
-    } do
-      host_spec1 = ssh_fixture()
-      host_spec2 = %{ssh_fixture() | host: "localhost2"}
-      namespace_spec = gen_namespace_spec([host_spec1, host_spec2], registry_spec)
-      data = %{release_spec: release_spec, namespace_spec: namespace_spec, namespace_state: nil}
+    test "transitions to :deploy when release is running" do
+      data = build_workflow_data("localhost2")
 
       actions = [
         {:change_callback_module, ControlNode.Namespace.Deploy},
@@ -28,19 +15,15 @@ defmodule ControlNode.Namespace.InitializeTest do
       ]
 
       with_mock Release, initialize_state: &mock_initialize_state/3 do
-        assert {:next_state, :deploy, data, ^actions} =
+        assert {:next_state, :deploy, data, next_actions} =
                  Initialize.handle_event(:internal, :load_namespace_state, :initialize, data)
+
+        assert next_actions == actions
       end
     end
 
-    test "returns :version_conflict when running releases have differnt version", %{
-      registry_spec: registry_spec,
-      release_spec: release_spec
-    } do
-      host_spec1 = ssh_fixture()
-      host_spec2 = %{ssh_fixture() | host: "localhost4"}
-      namespace_spec = gen_namespace_spec([host_spec1, host_spec2], registry_spec)
-      data = %{release_spec: release_spec, namespace_spec: namespace_spec, namespace_state: nil}
+    test "returns :version_conflict when running releases which have different version" do
+      data = build_workflow_data("localhost4")
 
       with_mock Release, initialize_state: &mock_initialize_state/3 do
         assert {:next_state, :version_conflict, data} =
@@ -48,28 +31,22 @@ defmodule ControlNode.Namespace.InitializeTest do
       end
     end
 
-    test "transitions to :manage when no release is running", %{
-      registry_spec: registry_spec,
-      release_spec: release_spec
-    } do
-      host_spec = %{ssh_fixture() | host: "localhost3"}
-      namespace_spec = gen_namespace_spec([host_spec], registry_spec)
-      data = %{release_spec: release_spec, namespace_spec: namespace_spec, namespace_state: nil}
-
+    test "transitions to :manage when no release is running" do
+      namespace_spec = build(:namespace_spec, hosts: [build(:host_spec, host: "localhost3")])
+      data = build(:workflow_data, namespace_spec: namespace_spec)
       actions = [{:change_callback_module, ControlNode.Namespace.Manage}]
 
       with_mock Release, initialize_state: &mock_initialize_state/3 do
-        assert {:next_state, :manage, data, ^actions} =
+        assert {:next_state, :manage, data, next_actions} =
                  Initialize.handle_event(:internal, :load_namespace_state, :initialize, data)
+
+        assert next_actions == actions
       end
     end
 
-    test "resolves version_conflict when {:resolve_version, version} event is sent", %{
-      registry_spec: registry_spec,
-      release_spec: release_spec
-    } do
-      namespace_spec = gen_namespace_spec([ssh_fixture()], registry_spec)
-      data = %{release_spec: release_spec, namespace_spec: namespace_spec, namespace_state: nil}
+    test "resolves version_conflict when {:resolve_version, version} event is sent" do
+      namespace_spec = build(:namespace_spec, hosts: [build(:host_spec)])
+      data = build(:workflow_data, namespace_spec: namespace_spec)
 
       actions = [
         {:reply, :ignore, :ok},
@@ -78,13 +55,86 @@ defmodule ControlNode.Namespace.InitializeTest do
       ]
 
       with_mock Release, initialize_state: &mock_initialize_state/3 do
-        assert {:next_state, :deploy, data, ^actions} =
+        assert {:next_state, :deploy, data, next_actions} =
                  Initialize.handle_event(
                    {:call, :ignore},
                    {:resolve_version, "0.2.0"},
                    :version_confict,
                    data
                  )
+
+        assert next_actions == actions
+      end
+    end
+
+    test "on [event: {:load_namespace_state, version}] transitions to [state: :manage]\
+    when release with `version` is running" do
+      data = build_workflow_data("localhost2")
+      actions = [change_callback_module: ControlNode.Namespace.Manage]
+
+      with_mock Release, initialize_state: &mock_initialize_state/3 do
+        assert {:next_state, :manage, data, next_actions} =
+                 Initialize.handle_event(
+                   :internal,
+                   {:load_namespace_state, "0.1.0"},
+                   :initialize,
+                   data
+                 )
+
+        assert next_actions == actions
+      end
+    end
+
+    test "[event: {:load_namespace_state, version}] transitions to [state: :deploy]\
+    when release with `version` is partially running" do
+      data = build_workflow_data("localhost3")
+
+      with_mock Release, initialize_state: &mock_initialize_state/3 do
+        assert {:next_state, :deploy, data, next_actions} =
+                 Initialize.handle_event(
+                   :internal,
+                   {:load_namespace_state, "0.1.0"},
+                   :initialize,
+                   data
+                 )
+
+        assert next_actions == expected_actions("0.1.0")
+      end
+    end
+
+    test "[event: {:load_namespace_state, version}] transitions to [state: :deploy]\
+    when different release versions are running" do
+      data = build_workflow_data("localhost4")
+
+      with_mock Release, initialize_state: &mock_initialize_state/3 do
+        assert {:next_state, :deploy, data, next_actions} =
+                 Initialize.handle_event(
+                   :internal,
+                   {:load_namespace_state, "0.2.0"},
+                   :initialize,
+                   data
+                 )
+
+        assert next_actions == expected_actions("0.2.0")
+      end
+    end
+
+    test "[event: {:load_namespace_state, version}] transitions to [state: :deploy]\
+    when release is not running" do
+      hosts = [build(:host_spec, host: "localhost3")]
+      namespace_spec = build(:namespace_spec, hosts: hosts)
+      data = build(:workflow_data, namespace_spec: namespace_spec)
+
+      with_mock Release, initialize_state: &mock_initialize_state/3 do
+        assert {:next_state, :deploy, data, next_actions} =
+                 Initialize.handle_event(
+                   :internal,
+                   {:load_namespace_state, "0.2.0"},
+                   :initialize,
+                   data
+                 )
+
+        assert next_actions == expected_actions("0.2.0")
       end
     end
   end
@@ -101,13 +151,16 @@ defmodule ControlNode.Namespace.InitializeTest do
     %Release.State{host: host_spec, version: "0.1.0", status: :running, port: 8989}
   end
 
-  defp gen_namespace_spec(hosts, registry_spec) do
-    %Namespace.Spec{
-      tag: :testing,
-      hosts: hosts,
-      registry_spec: registry_spec,
-      deployment_type: :incremental_replace,
-      release_cookie: :"YFWZXAOJGTABHNGIT6KVAC2X6TEHA6WCIRDKSLFD6JZWRC4YHMMA===="
-    }
+  defp build_workflow_data(another_host) do
+    hosts = [build(:host_spec), build(:host_spec, host: another_host)]
+    namespace_spec = build(:namespace_spec, hosts: hosts)
+    build(:workflow_data, namespace_spec: namespace_spec)
+  end
+
+  defp expected_actions(version) do
+    [
+      {:change_callback_module, ControlNode.Namespace.Deploy},
+      {:next_event, :internal, {:ensure_running, version}}
+    ]
   end
 end
