@@ -28,6 +28,7 @@ defmodule ControlNode.MixProject do
   defp deps do
     [
       {:mock, "~> 0.3.0", only: :test},
+      {:ex_machina, "~> 2.4", only: :test},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
       {:ex_doc, "~> 0.22", only: :dev, runtime: false}
     ]

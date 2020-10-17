@@ -1,6 +1,6 @@
 defmodule ControlNode.TestUtils do
-  alias ControlNode.Host.SSH
   require ExUnit.Assertions
+  alias ControlNode.Host.SSH
 
   def ssh_fixture do
     private_key_dir = with_fixture_path('host-vm/.ssh') |> :erlang.list_to_binary()
