@@ -62,6 +62,8 @@ defmodule ControlNode.Release do
             register_node(release_spec, host_spec, service_port)
 
             # Setup tunnel to release port on host
+            # TODO/NOTE/WARN random local port should be used to avoid having a clash
+            # if the releases use the same port on different hosts
             :ok = Host.tunnel_to_service(host_spec, service_port)
             true = connect_and_monitor(release_spec, host_spec, cookie)
 
