@@ -49,10 +49,19 @@ In oder to use `control_node` you must ensure the following,
 This library ships with an example `service_app` under `example/` folder. You can try out this library
 by trying to deploy the release using the following steps,
 
+Clone the repo
 ```
 $ git clone https://github.com/beamX/control-node
 $ cd control-code/
+```
+
+Start an SSH server locally where the release will be deployed,
+```
 $ docker-compose up -d
+```
+
+Start `iex` and define `ServiceApp` module which will offer API to deploy `service_app`,
+```elixir
 $ iex -S mix
 Erlang/OTP 23 [erts-11.0] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [hipe]
 
@@ -62,12 +71,24 @@ iex(control_node_test@hostname)2> defmodule ServiceApp do
   use ControlNode.Release,
     spec: %ControlNode.Release.Spec{name: :service_app, base_path: "/app/service_app"}
 end
+```
+
+Declare a `host_spec` which will hold the details of which host the release can be deployed to
+```elixir
 iex(control_node_test@hostname)3> host_spec = %ControlNode.Host.SSH{
   host: "localhost",
   port: 2222,
   user: "linuxserver.io",
   private_key_dir: Path.join([File.cwd!(), "test/fixture", "host-vm/.ssh"])
 }
+```
+
+Declare a `namespace_spec` which define the namespace for a given release. Notice that the
+namespace allows specifying a list of `hosts` and `registry`.
+A registry module offers API to retrieve the release tar and here we use a `Local` registry
+which will retrieve the release tar from the filesystem.
+
+```elixir
 iex(control_node_test@hostname)4> namespace_spec = %ControlNode.Namespace.Spec{
   tag: :testing,
   hosts: [host_spec],
@@ -75,6 +96,13 @@ iex(control_node_test@hostname)4> namespace_spec = %ControlNode.Namespace.Spec{
   deployment_type: :incremental_replace,
   release_cookie: :"YFWZXAOJGTABHNGIT6KVAC2X6TEHA6WCIRDKSLFD6JZWRC4YHMMA===="
 }
+```
+
+Now we deploy the release to a given `namespace_spec` i.e. the release we be started on on
+all the `hosts` specified in the namespace. Notice that once the deployment is finished 
+`control_node_test@hostname` automatically connects to release nodes,
+
+```elixir
 iex(control_node_test@hostname)5> ServiceApp.start_link(namespace_spec)
 iex(control_node_test@hostname)6> ServiceApp.deploy(:testing, "0.1.0")
 iex(control_node_test@hostname)7> Node.list()
