@@ -41,7 +41,7 @@ defmodule ControlNode.Namespace.Deploy do
     end)
 
     # Since a new release is deployed that current namespace state is no longer valid
-    Enum.map(namespace_state, fn s -> Release.terminate_state(s) end)
+    Enum.map(namespace_state, fn s -> Release.terminate_state(release_spec, s) end)
     data = %Workflow.Data{data | namespace_state: nil, deploy_attempts: data.deploy_attempts + 1}
 
     {state, actions} = Namespace.Workflow.next(@state_name, :executed, version)

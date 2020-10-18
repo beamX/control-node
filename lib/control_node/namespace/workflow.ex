@@ -24,14 +24,14 @@ defmodule ControlNode.Namespace.Workflow do
   switches to managing the namespace and wait request for new deployment
   """
   def next(:initialize, :not_running, _) do
-    actions = [{:change_callback_module, ControlNode.Namespace.Manage}]
+    actions = [{:change_callback_module, Namespace.Manage}]
 
     {:manage, actions}
   end
 
   def next(:initialize, :partially_running, version) do
     actions = [
-      {:change_callback_module, ControlNode.Namespace.Deploy},
+      {:change_callback_module, Namespace.Deploy},
       {:next_event, :internal, {:ensure_running, version}}
     ]
 
@@ -39,17 +39,26 @@ defmodule ControlNode.Namespace.Workflow do
   end
 
   def next(:initialize, :running, _version) do
-    actions = [{:change_callback_module, ControlNode.Namespace.Manage}]
+    actions = [{:change_callback_module, Namespace.Manage}]
 
     {:manage, actions}
   end
 
   def next(:deploy, :executed, version) do
     actions = [
-      {:change_callback_module, ControlNode.Namespace.Initialize},
+      {:change_callback_module, Namespace.Initialize},
       {:next_event, :internal, {:load_namespace_state, version}}
     ]
 
     {:initialize, actions}
+  end
+
+  def next(:manage, :trigger_deployment, version) do
+    actions = [
+      {:change_callback_module, Namespace.Deploy},
+      {:next_event, :internal, {:ensure_running, version}}
+    ]
+
+    {:deploy, actions}
   end
 end

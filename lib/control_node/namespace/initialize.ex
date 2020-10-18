@@ -61,14 +61,19 @@ defmodule ControlNode.Namespace.Initialize do
         Release.initialize_state(release_spec, host_spec, namespace_spec.release_cookie)
       end)
 
-    namespace_status =
+    {namespace_status, new_deploy_attempts} =
       if is_current_version?(namespace_state, version) do
-        :running
+        {:running, 0}
       else
-        :partially_running
+        {:partially_running, data.deploy_attempts}
       end
 
-    data = %Workflow.Data{data | namespace_state: namespace_state}
+    data = %Workflow.Data{
+      data
+      | namespace_state: namespace_state,
+        deploy_attempts: new_deploy_attempts
+    }
+
     {state, actions} = Namespace.Workflow.next(@state_name, namespace_status, version)
     {:next_state, state, data, actions}
   end
