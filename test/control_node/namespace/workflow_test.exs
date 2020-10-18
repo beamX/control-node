@@ -7,7 +7,7 @@ defmodule ControlNode.Namespace.WorkflowTest do
 
   defmodule ServiceApp do
     use ControlNode.Release,
-      spec: %Release.Spec{name: :service_app, base_path: "/app/service_app"}
+      spec: %ControlNode.Release.Spec{name: :service_app, base_path: "/app/service_app"}
   end
 
   describe "ServiceApp.start_link/1" do
@@ -15,7 +15,7 @@ defmodule ControlNode.Namespace.WorkflowTest do
       {Release, [],
        [
          initialize_state: &mock_initialize_state/3,
-         terminate_state: &mock_terminate_state/1,
+         terminate_state: &mock_terminate_state/2,
          deploy: &mock_deploy/4
        ]}
     ]) do
@@ -54,5 +54,5 @@ defmodule ControlNode.Namespace.WorkflowTest do
     throw("Some exception")
   end
 
-  defp mock_terminate_state(_), do: :ok
+  defp mock_terminate_state(_, _), do: :ok
 end

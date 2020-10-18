@@ -34,7 +34,6 @@ In oder to use `control_node` you must ensure the following,
 - You are deploying to bare metal servers or virtual machines
 - Your Erlang/Elixir project when started should run the EPMD (it runs by default if you don't change the config)
 
-
 ## Features
 
 - [x] Support multiple namespaces for a release
@@ -45,10 +44,41 @@ In oder to use `control_node` you must ensure the following,
 - [ ] Dynamically scale up/down your release instances
 - [ ] Rollback releases
 
-
 ## Quick example
 
-TODO
+This library ships with an example `service_app` under `example/` folder. You can try out this library
+by trying to deploy the release using the following steps,
+
+```
+$ git clone https://github.com/beamX/control-node
+$ cd control-code/
+$ docker-compose up -d
+$ iex -S mix
+Erlang/OTP 23 [erts-11.0] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [hipe]
+
+Interactive Elixir (1.10.4) - press Ctrl+C to exit (type h() ENTER for help)
+iex(1)> :net_kernel.start([:control_node_test, :shortnames])
+iex(control_node_test@hostname)2> defmodule ServiceApp do
+  use ControlNode.Release,
+    spec: %ControlNode.Release.Spec{name: :service_app, base_path: "/app/service_app"}
+end
+iex(control_node_test@hostname)3> host_spec = %ControlNode.Host.SSH{
+  host: "localhost",
+  port: 2222,
+  user: "linuxserver.io",
+  private_key_dir: Path.join([File.cwd!(), "test/fixture", "host-vm/.ssh"])
+}
+iex(control_node_test@hostname)4> namespace_spec = %ControlNode.Namespace.Spec{
+  tag: :testing,
+  hosts: [host_spec],
+  registry_spec: %ControlNode.Registry.Local{path: Path.join(File.cwd!(), "example")},
+  deployment_type: :incremental_replace,
+  release_cookie: :"YFWZXAOJGTABHNGIT6KVAC2X6TEHA6WCIRDKSLFD6JZWRC4YHMMA===="
+}
+iex(control_node_test@hostname)5> ServiceApp.start_link(namespace_spec)
+iex(control_node_test@hostname)6> ServiceApp.deploy(:testing, "0.1.0")
+iex(control_node_test@hostname)7> Node.list()
+```
 
 ### SSH server config to enable tunneling
 In order to ensure that Control Node can connect to release node the SSH servers running

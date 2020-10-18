@@ -9,7 +9,7 @@ defmodule ControlNode.Namespace.DeployTest do
       {Release, [],
        [
          terminate: &mock_terminate/2,
-         terminate_state: &mock_terminate_state/1,
+         terminate_state: &mock_terminate_state/2,
          deploy: &mock_deploy/4
        ]}
     ]) do
@@ -67,7 +67,7 @@ defmodule ControlNode.Namespace.DeployTest do
 
   defp mock_deploy(_release_spec, _release_state, _registry_spec, _version), do: :ok
 
-  defp mock_terminate_state(_), do: :ok
+  defp mock_terminate_state(_, _), do: :ok
 
   defp build_workflow_data(version) do
     host = build(:host_spec)

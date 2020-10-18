@@ -137,6 +137,25 @@ defmodule ControlNode.Namespace.InitializeTest do
         assert next_actions == expected_actions("0.2.0")
       end
     end
+
+    test "[event: {:load_namespace_state, version}] transitions to [state: :manage]\
+    resets deploy_attempts" do
+      data = %{build_workflow_data("localhost2") | deploy_attempts: 3}
+      actions = [change_callback_module: ControlNode.Namespace.Manage]
+
+      with_mock Release, initialize_state: &mock_initialize_state/3 do
+        assert {:next_state, :manage, %{deploy_attempts: attempts}, next_actions} =
+                 Initialize.handle_event(
+                   :internal,
+                   {:load_namespace_state, "0.1.0"},
+                   :initialize,
+                   data
+                 )
+
+        assert next_actions == actions
+        assert attempts == 0
+      end
+    end
   end
 
   defp mock_initialize_state(_release_spec, %{host: "localhost3"} = host_spec, _cookie) do

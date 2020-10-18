@@ -83,6 +83,54 @@ defmodule ControlNode.ReleaseTest do
     end
   end
 
+  describe "terminate" do
+    setup %{release_spec: release_spec, host_spec: host_spec, registry_spec: registry_spec} do
+      :ok = Release.deploy(release_spec, host_spec, registry_spec, "0.1.0")
+      ensure_started(release_spec, host_spec)
+
+      on_exit(fn ->
+        SSH.exec(host_spec, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} stop")
+        ensure_stopped(release_spec, host_spec)
+      end)
+    end
+
+    @tag capture_log: true
+    test "terminate_state/2 demonitor node and close SSH connection", %{
+      release_spec: release_spec,
+      host_spec: host_spec,
+      cookie: cookie
+    } do
+      # test `terminate_state` without node connect/monitor
+      host_spec = Host.connect(host_spec)
+
+      assert %Host.SSH{conn: nil} =
+               Release.terminate_state(release_spec, %Release.State{host: host_spec})
+
+      # test `terminate_state` with node connect/monitor
+      %{host: host_spec} =
+        release_state = Release.initialize_state(release_spec, host_spec, cookie)
+
+      node = :"#{release_spec.name}@#{host_spec.hostname}"
+
+      assert %Host.SSH{conn: nil} = Release.terminate_state(release_spec, release_state)
+      refute_receive {:nodedown, ^node}
+    end
+
+    test "terminate/2 stop node and close SSH connection", %{
+      release_spec: release_spec,
+      host_spec: host_spec,
+      cookie: cookie
+    } do
+      %{host: host_spec} =
+        release_state = Release.initialize_state(release_spec, host_spec, cookie)
+
+      assert :ok = Release.terminate(release_spec, release_state)
+
+      node = :"#{release_spec.name}@#{host_spec.hostname}"
+      refute_receive {:nodedown, ^node}
+    end
+  end
+
   describe "stop/2" do
     test "return error when node is not connected", %{
       release_spec: release_spec,

@@ -25,6 +25,10 @@ defmodule ControlNode.Release do
         :gen_statem.call(name(namespace_tag), {:resolve_version, version})
       end
 
+      def deploy(namespace_tag, version) do
+        :gen_statem.call(name(namespace_tag), {:deploy, version})
+      end
+
       defp name(tag), do: :"#{@release_name}_#{tag}"
 
       def start_link(namespace_spec) do
@@ -37,6 +41,8 @@ defmodule ControlNode.Release do
 
       @impl :gen_statem
       def init(namespace_spec) do
+        %Release.Spec{} = @release_spec
+
         data = %Namespace.Workflow.Data{
           release_spec: @release_spec,
           namespace_spec: namespace_spec,
@@ -75,12 +81,15 @@ defmodule ControlNode.Release do
     end
   end
 
-  def terminate_state(%State{host: host_spec} = release_state) do
+  def terminate_state(release_spec, %State{host: host_spec} = release_state) do
     try do
+      # Since connection to host exists it might be the case that the release is running
+      # and it monitored
+      demonitor_node(release_spec, host_spec)
       Host.disconnect(host_spec)
     catch
       error, message ->
-        Logger.error("Failed to terminate state",
+        Logger.error("Failed to terminate state #{inspect({error, message})}",
           release_state: release_state,
           error: error,
           message: message
@@ -89,21 +98,31 @@ defmodule ControlNode.Release do
   end
 
   def terminate(release_spec, %State{host: host_spec}) do
-    node = to_node_name(release_spec, host_spec)
+    with {:ok, node} <- to_node_name(release_spec, host_spec) do
+      # demonitor node so that {:nodedown, node} message is not generated when
+      # the node is stopped
+      Node.monitor(node, false)
+      :rpc.call(node, :init, :stop, [0])
+    end
 
-    # demonitor node so that {:nodedown, node} message is not generated when the
-    # node is stopped
-    true = Node.monitor(node, false)
-
-    # stop node
-    :rpc.call(node, :init, :stop, [0])
     true = check_until_stopped(release_spec, host_spec)
 
     :ok
   end
 
+  defp demonitor_node(release_spec, host_spec) do
+    with {:ok, node} <- to_node_name(release_spec, host_spec) do
+      # demonitor node so that {:nodedown, node} message is not generated when the
+      # node is stopped
+      Node.monitor(node, false)
+    else
+      _other ->
+        Logger.warn("Failed to demonitor node", release_spec: release_spec, host_spec: host_spec)
+    end
+  end
+
   defp check_until_stopped(release_spec, host_spec) do
-    Enum.any?(1..50, fn ->
+    Enum.any?(1..50, fn _ ->
       :timer.sleep(100)
       {:error, :release_not_running} == node_info(release_spec, host_spec)
     end)
