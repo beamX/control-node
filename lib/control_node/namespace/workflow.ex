@@ -11,9 +11,22 @@ defmodule ControlNode.Namespace.Workflow do
   end
 
   def init() do
+    init(System.get_env("CONTROL_MODE", "MANAGE"))
+  end
+
+  defp init("MANAGE") do
     actions = [
       {:change_callback_module, ControlNode.Namespace.Initialize},
       {:next_event, :internal, :load_namespace_state}
+    ]
+
+    {:initialize, actions}
+  end
+
+  defp init("OBSERVE") do
+    actions = [
+      {:change_callback_module, ControlNode.Namespace.Initialize},
+      {:next_event, :internal, :observe_namespace_state}
     ]
 
     {:initialize, actions}
@@ -42,6 +55,12 @@ defmodule ControlNode.Namespace.Workflow do
     actions = [{:change_callback_module, Namespace.Manage}]
 
     {:manage, actions}
+  end
+
+  def next(:initialize, :observe_namespace_state, _version) do
+    actions = [{:change_callback_module, Namespace.Observe}]
+
+    {:observe, actions}
   end
 
   def next(:deploy, :executed, version) do

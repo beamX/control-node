@@ -15,6 +15,19 @@ defmodule ControlNode.Namespace.Initialize do
 
   def callback_mode, do: :handle_event_function
 
+  def handle_event(:internal, :observe_namespace_state, :initialize, data) do
+    %Workflow.Data{namespace_spec: namespace_spec, release_spec: release_spec} = data
+
+    namespace_state =
+      Enum.map(namespace_spec.hosts, fn host_spec ->
+        Release.initialize_state(release_spec, host_spec, namespace_spec.release_cookie)
+      end)
+
+    data = %Workflow.Data{data | namespace_state: namespace_state}
+    {state, actions} = Namespace.Workflow.next(@state_name, :observe_namespace_state, nil)
+    {:next_state, state, data, actions}
+  end
+
   def handle_event(:internal, :load_namespace_state, :initialize, data) do
     %Workflow.Data{namespace_spec: namespace_spec, release_spec: release_spec} = data
 

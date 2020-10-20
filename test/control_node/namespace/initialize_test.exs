@@ -141,7 +141,7 @@ defmodule ControlNode.Namespace.InitializeTest do
     test "[event: {:load_namespace_state, version}] transitions to [state: :manage]\
     resets deploy_attempts" do
       data = %{build_workflow_data("localhost2") | deploy_attempts: 3}
-      actions = [change_callback_module: ControlNode.Namespace.Manage]
+      actions = [change_callback_module: Namespace.Manage]
 
       with_mock Release, initialize_state: &mock_initialize_state/3 do
         assert {:next_state, :manage, %{deploy_attempts: attempts}, next_actions} =
@@ -154,6 +154,23 @@ defmodule ControlNode.Namespace.InitializeTest do
 
         assert next_actions == actions
         assert attempts == 0
+      end
+    end
+
+    test "[event: :observe_namespace_state] transitions to [state: :observe]" do
+      namespace_spec = build(:namespace_spec, hosts: [build(:host_spec)])
+      data = build(:workflow_data, namespace_spec: namespace_spec)
+
+      with_mock Release, initialize_state: &mock_initialize_state/3 do
+        assert {:next_state, :observe, data, next_actions} =
+                 Initialize.handle_event(
+                   :internal,
+                   :observe_namespace_state,
+                   :initialize,
+                   data
+                 )
+
+        assert next_actions == [{:change_callback_module, Namespace.Observe}]
       end
     end
   end
