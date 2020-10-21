@@ -6,7 +6,8 @@ defmodule ControlNode.Host.SSH do
             user: nil,
             private_key_dir: nil,
             conn: nil,
-            hostname: nil
+            hostname: nil,
+            via_ssh_agent: false
 
   @type t :: %__MODULE__{
           host: binary,
@@ -15,7 +16,8 @@ defmodule ControlNode.Host.SSH do
           user: binary,
           private_key_dir: binary,
           conn: :ssh.connection_ref(),
-          hostname: binary
+          hostname: binary,
+          via_ssh_agent: boolean
         }
   @timeout :infinity
 
@@ -43,6 +45,13 @@ defmodule ControlNode.Host.SSH do
       {:silently_accept_hosts, true},
       {:auth_methods, 'publickey'}
     ]
+
+    ssh_options =
+      if ssh_config.via_ssh_agent do
+        [{:key_cb, {:ssh_agent, []}} | ssh_options]
+      else
+        ssh_options
+      end
 
     ssh_config.host
     |> to_list()
