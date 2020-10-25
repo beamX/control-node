@@ -1,6 +1,8 @@
 defmodule ControlNode.MixProject do
   use Mix.Project
 
+  @source_url "https://github.com/beamX/control-node"
+
   def project do
     [
       name: "Control Node",
@@ -13,7 +15,7 @@ defmodule ControlNode.MixProject do
       package: package(),
       deps: deps(),
       description: description(),
-      source_url: "https://github.com/beamX/control-node"
+      docs: docs()
     ]
   end
 
@@ -29,7 +31,8 @@ defmodule ControlNode.MixProject do
       maintainers: ["Vanshdeep Singh"],
       licenses: ["MIT"],
       links: %{
-        GitHub: "https://github.com/beamX/control-node"
+        Changelog: "#{@source_url}/blob/master/CHANGELOG.md",
+        GitHub: @source_url
       }
     ]
   end
@@ -45,13 +48,24 @@ defmodule ControlNode.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:mock, "~> 0.3.0", only: :test},
       {:ex_machina, "~> 2.4", only: :test},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
       {:ex_doc, "~> 0.22", only: :dev, runtime: false}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      source_url: @source_url,
+      extras: [
+        "CHANGELOG.md",
+        "README.md",
+        "TESTING.md"
+      ]
     ]
   end
 end

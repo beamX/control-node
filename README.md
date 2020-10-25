@@ -1,12 +1,13 @@
 # Control Node
 
-![ci-test](https://github.com/beamX/control-node/workflows/ci-test/badge.svg)
-[![Hex.pm Version](http://img.shields.io/hexpm/v/control_node.svg?style=flat)](https://hex.pm/packages/control_node)
-
+[![github.com](https://github.com/beamX/control-node/workflows/ci-test/badge.svg)](https://github.com/beamX/control-node/actions)
+[![hex.pm](https://img.shields.io/hexpm/v/control_node.svg)](https://hex.pm/packages/control_node)
+[![hexdocs.pm](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/control_node/)
+[![hex.pm](https://img.shields.io/hexpm/dt/control_node.svg)](https://hex.pm/packages/control_node)
+[![hex.pm](https://img.shields.io/hexpm/l/control_node.svg)](https://hex.pm/packages/control_node)
+[![github.com](https://img.shields.io/github/last-commit/beamX/control-node.svg)](https://github.com/beamX/control-node/commits/master)
 
 🚀 **Continuous Delivery and Orchestration as code for Elixir**
-
-- [Documentation](https://hexdocs.pm/control_node)
 
 ## Installation
 
@@ -24,9 +25,9 @@ end
 and orchestration workflows i.e. given a release tar of an Elixir/Erlang project
 `control_node` allows you to deploy the release to hosts VMs and monitor the same thereafter.
 
-## Pre-requesites
+## Pre-requisites
 
-In oder to use `control_node` you must ensure the following,
+In order to use `control_node` you must ensure the following,
 
 - You are deploying to bare metal servers or virtual machines
 - Your Erlang/Elixir project when started should run the EPMD (it runs by default if you don't change the config)
@@ -96,7 +97,7 @@ iex(control_node_test@hostname)4> namespace_spec = %ControlNode.Namespace.Spec{
 ```
 
 Now we deploy the release to a given `namespace_spec` i.e. the release we be started on on
-all the `hosts` specified in the namespace. Notice that once the deployment is finished 
+all the `hosts` specified in the namespace. Notice that once the deployment is finished
 `control_node_test@hostname` automatically connects to release nodes,
 
 ```elixir
@@ -115,10 +116,10 @@ AllowTcpForwarding yes
 ...
 ```
 
-## Limiation
+## Lamination
 
-- Only shortnames for nodes are allowed
+- Only short names for nodes are allowed
 - Instances of same release (deployed to different) should have different
   hostname i.e. for eg. if node 1 has node name `service_app@host1` then another
   node of `service_app` should have a different node name.
-- SSH client cannot read new format of RSA keys, should be convered to PEM format
+- SSH client cannot read new format of RSA keys, should be covered to PEM format

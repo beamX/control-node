@@ -2,10 +2,10 @@ defmodule ControlNode.Namespace.Deploy do
   @moduledoc false
   @state_name :deploy
 
-  # `Deploy` state of the namespace fsm ensure that a given version of the release
+  # `Deploy` state of the namespace FSM ensure that a given version of the release
   # is running in the namespace
   # NOTE:
-  # - In case a release fails to starts it must be retried continously with exponential backoff
+  # - In case a release fails to starts it must be retried continuously with exponential backoff
 
   require Logger
   alias ControlNode.{Namespace, Release}
@@ -27,7 +27,7 @@ defmodule ControlNode.Namespace.Deploy do
       release_state ->
         with {:error, {error, message}} <-
                ensure_running(release_state, release_spec, registry_spec, version) do
-          # Either an error occured when stopping the release or when deploying it
+          # Either an error occurred when stopping the release or when deploying it
           Logger.error(
             "Failed while deploying release",
             error: error,

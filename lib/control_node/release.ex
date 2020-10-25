@@ -73,7 +73,7 @@ defmodule ControlNode.Release do
   @doc """
   With the given `release_spec`, `host_spec` and `cookie` tries to connect to
   the release running on the remote host. In case the release is running on the
-  host a SSH tunnel is establied and control node connects to the release (via
+  host a SSH tunnel is established and control node connects to the release (via
   `Node.connect/1`) and starts monitoring the release node.
   """
   def initialize_state(release_spec, host_spec, cookie) do
