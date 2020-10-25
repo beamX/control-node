@@ -1,9 +1,13 @@
 defmodule ControlNode.Host do
+  @moduledoc false
+
   alias ControlNode.Host.SSH
   @epmd_names 110
   @int16_1 [0, 1]
 
   defmodule Info do
+    @moduledoc false
+
     @type t :: %__MODULE__{epmd_port: integer, services: map}
     defstruct epmd_port: nil, services: %{}
   end

@@ -1,6 +1,8 @@
 defmodule ControlNode.Epmd do
   # ref: https://www.erlang-solutions.com/blog/erlang-and-elixir-distribution-without-epmd.html
 
+  @moduledoc false
+
   def start_link, do: :ignore
 
   # As of Erlang/OTP 19.1, register_node/3 is used instead of

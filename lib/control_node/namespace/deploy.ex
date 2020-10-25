@@ -1,13 +1,11 @@
 defmodule ControlNode.Namespace.Deploy do
+  @moduledoc false
   @state_name :deploy
 
-  @moduledoc """
-  `Deploy` state of the namespace fsm ensure that a given version of the release
-  is running in the namespace
-
-  NOTE:
-  - In case a release fails to starts it must be retried continously with exponential backoff
-  """
+  # `Deploy` state of the namespace fsm ensure that a given version of the release
+  # is running in the namespace
+  # NOTE:
+  # - In case a release fails to starts it must be retried continously with exponential backoff
 
   require Logger
   alias ControlNode.{Namespace, Release}

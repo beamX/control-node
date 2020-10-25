@@ -1,4 +1,6 @@
 defmodule ControlNode.Namespace.Manage do
+  @moduledoc false
+
   @state_name :manage
   require Logger
   alias ControlNode.Namespace.Workflow

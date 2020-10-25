@@ -1,7 +1,11 @@
 defmodule ControlNode.Namespace.Workflow do
+  @moduledoc false
+
   alias ControlNode.{Namespace, Release}
 
   defmodule Data do
+    @moduledoc false
+
     @type t :: %__MODULE__{
             namespace_spec: Namespace.Spec.t(),
             release_spec: Release.Spec.t(),
