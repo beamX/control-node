@@ -3,7 +3,7 @@ defmodule ControlNode.Namespace.Initialize do
 
   @state_name :initialize
 
-  # `Initialize` is the first state of the namespace fsm
+  # `Initialize` is the first state of the namespace FSM
   # The name is can be in one of the following states,
   # 1. Release is running on some or all hosts with same version
   # 2. Release is not running any host

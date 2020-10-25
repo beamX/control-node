@@ -1,5 +1,7 @@
+# Testing
+
 ## Generate example service_app
-An example release tar which can be run on the openssh-server can be prepared as
+An example release tarball which can be run on the openssh-server can be prepared as
 follows
 
 ```sh
@@ -9,14 +11,16 @@ docker build -t beamx/openssh-server:erlang .
 docker run -it -v $(pwd):/app  --entrypoint bash beamx/openssh-server:erlang
 ```
 
-Inside docker image
+Inside Docker image
+
 ```
 cd /app/service_app
 MIX_ENV=prod mix release
 exit
 ```
 
-copy tar to the root parent folder
+Copy tarball to the root parent folder
+
 ```
 cd example/
 cp service_app/_build/prod/service_app-0.1.0.tar.gz .
@@ -34,7 +38,8 @@ ssh-keygen -t ed25519 -f ./ssh_host_ed25519_key -C "daemon@email.com"
 ```
 
 
-## Start ssh server locally for testing
+## Start SSH server locally for testing
+
 ```sh
 /usr/bin/sshd  -D -p 9191 -h $(pwd)/ssh_daemon/ssh_host_ed25519_key  -f $(pwd)/ssh_daemon/sshd_config  -o "AuthorizedKeysFile $(pwd)/host-vm/.ssh/authorized_keys"
 ```

@@ -112,7 +112,7 @@ defmodule ControlNode.Host.SSH do
   end
 
   @doc """
-  Execute a given list of command or a bash script on the host vm
+  Execute a given list of command or a bash script on the host VM
 
   `skip_eof` : For commands which start long running processes `skip_eof` should
   be set to `true`. This enable `exec` to return `ExecStatus` while the command
@@ -175,12 +175,10 @@ defmodule ControlNode.Host.SSH do
 
   ## Example
 
-  ```
-  iex> ssh_config = %SSH{host: "remote-host.com", port: 22, user: "username", private_key_dir: "/home/local_user/.ssh"}
+      iex> ssh_config = %SSH{host: "remote-host.com", port: 22, user: "username", private_key_dir: "/home/local_user/.ssh"}
+      iex> ControlNode.Host.SSH.upload_file(ssh_config, "/opt/remote/server/directory", "file_contexts_binary")
+      :ok
 
-  iex> ControlNode.Host.SSH.upload_file(ssh_config, "/opt/remote/server/directory", "file_contexts_binary")
-  :ok
-  ```
   """
   @spec upload_file(t, binary, binary) :: :ok
   def upload_file(%__MODULE__{port: port} = ssh_config, file_path, tar_file)
