@@ -116,10 +116,10 @@ AllowTcpForwarding yes
 ...
 ```
 
-## Lamination
+## Limitation
 
 - Only short names for nodes are allowed
 - Instances of same release (deployed to different) should have different
   hostname i.e. for eg. if node 1 has node name `service_app@host1` then another
   node of `service_app` should have a different node name.
-- SSH client cannot read new format of RSA keys, should be covered to PEM format
+- SSH client cannot read new format of RSA keys, should be converted to PEM format
