@@ -1,14 +1,13 @@
 defmodule ControlNode.Namespace.Initialize do
+  @moduledoc false
+
   @state_name :initialize
 
-  @moduledoc """
-  `Initialize` is the first state of the namespace fsm
-
-  The name is can be in one of the following states,
-  1. Release is running on some or all hosts with same version
-  2. Release is not running any host
-  3. TODO Release is running on some or all hosts with different version
-  """
+  # `Initialize` is the first state of the namespace fsm
+  # The name is can be in one of the following states,
+  # 1. Release is running on some or all hosts with same version
+  # 2. Release is not running any host
+  # 3. TODO Release is running on some or all hosts with different version
 
   alias ControlNode.{Release, Namespace}
   alias Namespace.Workflow

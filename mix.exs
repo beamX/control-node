@@ -3,13 +3,34 @@ defmodule ControlNode.MixProject do
 
   def project do
     [
+      name: "Control Node",
       app: :control_node,
       version: "0.1.0",
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       elixirc_options: [warnings_as_errors: true],
-      deps: deps()
+      package: package(),
+      deps: deps(),
+      description: description(),
+      source_url: "https://github.com/beamX/control-node"
+    ]
+  end
+
+  defp description do
+    """
+    Continuous Delivery and Orchestration as code for Elixir
+    """
+  end
+
+  defp package do
+    [
+      files: ["lib", "priv", "mix.exs", "README.md", "LICENSE", ".formatter.exs"],
+      maintainers: ["Vanshdeep Singh"],
+      licenses: ["MIT"],
+      links: %{
+        Documentation: "https://hexdocs.pm/control-node"
+      }
     ]
   end
 

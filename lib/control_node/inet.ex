@@ -1,4 +1,6 @@
 defmodule ControlNode.Inet do
+  @moduledoc false
+
   # Configure lookup priority for resolving names
   # https://erlang.org/doc/apps/erts/inet_cfg.html
   def configure_lookup do

@@ -1,4 +1,7 @@
 defmodule ControlNode.Host.SSH do
+  @moduledoc """
+  """
+
   @enforce_keys [:host, :port, :user, :private_key_dir]
   defstruct host: nil,
             port: 22,
@@ -9,6 +12,17 @@ defmodule ControlNode.Host.SSH do
             hostname: nil,
             via_ssh_agent: false
 
+  @typedoc """
+  SSH spec defines a host which shall be used to connect and deploy releases. Following fields should be
+  defined
+
+  * `:host` : Remote host uri (eg. `server1.somehost.com`)
+  * `:port` : SSH port for connecting to the server (default `22`)
+  * `:epmd_port` : Port where EPMD is expected to be running on `host` (default `4369`)
+  * `:user` : SSH user name
+  * `:private_key_dir` : Path to the `.ssh` folder (eg. `/home/user/.ssh`)
+  * `via_ssh_agent`:  Use SSH Agent for authentication (default `false`)
+  """
   @type t :: %__MODULE__{
           host: binary,
           port: integer,
@@ -22,12 +36,16 @@ defmodule ControlNode.Host.SSH do
   @timeout :infinity
 
   defmodule ExecStatus do
+    @moduledoc false
     @type t :: %__MODULE__{exit_status: atom, exit_code: integer, message: list}
     defstruct exit_status: nil, exit_code: nil, message: []
   end
 
   alias __MODULE__
 
+  @doc """
+  Connect to SSH host
+  """
   @spec connect(t) :: t
   def connect(ssh_spec) do
     with {:ok, connection_ref} <- connect_host(ssh_spec) do
@@ -58,6 +76,9 @@ defmodule ControlNode.Host.SSH do
     |> :ssh.connect(ssh_config.port, ssh_options)
   end
 
+  @doc """
+  Closes SSH connection to remote host
+  """
   def disconnect(%{conn: nil} = ssh_config), do: ssh_config
 
   def disconnect(%{conn: conn} = ssh_config) do
@@ -66,12 +87,22 @@ defmodule ControlNode.Host.SSH do
     end
   end
 
+  @doc """
+  Establishes SSH tunnel on given `port` i.e. tunnel from `localhost:port` to `remote_host:port`.
+
+  `ssh_config` defines the remote host
+  """
   @spec tunnel_port_to_server(t, :inet.port_number()) ::
           {:ok, :inet.port_number()} | {:error, any}
   def tunnel_port_to_server(ssh_config, port) do
     tunnel_port_to_server(ssh_config, port, port)
   end
 
+  @doc """
+  Establishes SSH tunnel on from `localhost:local_port` to `remote_host:remote_port`
+
+  `ssh_config` defines the remote host
+  """
   @spec tunnel_port_to_server(t, :inet.port_number(), :inet.port_number()) ::
           {:ok, :inet.port_number()} | {:error, any}
   def tunnel_port_to_server(%{conn: nil}, _local_port, _remote_port), do: {:error, :not_connected}
@@ -144,9 +175,12 @@ defmodule ControlNode.Host.SSH do
 
   ## Example
 
+  ```
   iex> ssh_config = %SSH{host: "remote-host.com", port: 22, user: "username", private_key_dir: "/home/local_user/.ssh"}
+
   iex> ControlNode.Host.SSH.upload_file(ssh_config, "/opt/remote/server/directory", "file_contexts_binary")
   :ok
+  ```
   """
   @spec upload_file(t, binary, binary) :: :ok
   def upload_file(%__MODULE__{port: port} = ssh_config, file_path, tar_file)

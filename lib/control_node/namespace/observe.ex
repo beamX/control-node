@@ -1,4 +1,6 @@
 defmodule ControlNode.Namespace.Observe do
+  @moduledoc false
+
   require Logger
 
   def callback_mode, do: :handle_event_function

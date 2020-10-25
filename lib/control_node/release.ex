@@ -3,11 +3,26 @@ defmodule ControlNode.Release do
   alias ControlNode.{Host, Registry, Epmd, Inet}
 
   defmodule Spec do
+    @typedoc """
+    Release.Spec defines configuration for the release to be deployed and monitored.
+
+    * `:name` : Name of the release
+    * `:base_path` : Path on remote host where the release should be uploaded
+    """
+
     @type t :: %__MODULE__{name: atom, base_path: String.t()}
     defstruct name: nil, base_path: nil
   end
 
   defmodule State do
+    @typedoc """
+    `Release.Spec` defines the configuration for the release to be deployed and monitored.
+
+    * `:host` : Spec of remote host where the release will be deployed and  where
+    * `:version` : Version number of the release
+    * `:status` : Status of the release, possible values `:running | :not_running`
+    """
+
     @type t :: %__MODULE__{host: Host.SSH.t(), version: String.t(), status: atom, port: integer}
     defstruct host: nil, version: nil, status: nil, port: nil
   end
@@ -55,8 +70,15 @@ defmodule ControlNode.Release do
     end
   end
 
+  @doc """
+  With the given `release_spec`, `host_spec` and `cookie` tries to connect to
+  the release running on the remote host. In case the release is running on the
+  host a SSH tunnel is establied and control node connects to the release (via
+  `Node.connect/1`) and starts monitoring the release node.
+  """
   def initialize_state(release_spec, host_spec, cookie) do
-    with {:ok, %Host.Info{services: services}} <- Host.info(host_spec) do
+    with {:ok, %Host.Info{services: services}} <-
+           Host.info(host_spec) do
       case Map.get(services, release_spec.name) do
         nil ->
           %State{host: host_spec, status: :not_running}
@@ -81,6 +103,10 @@ defmodule ControlNode.Release do
     end
   end
 
+  @doc """
+  Stops monitoring the remote release and closes the SSH tunnel to the remote host
+  """
+  @spec terminate_state(Spec.t(), State.t()) :: Host.SSH.t()
   def terminate_state(release_spec, %State{host: host_spec} = release_state) do
     try do
       # Since connection to host exists it might be the case that the release is running
@@ -97,6 +123,9 @@ defmodule ControlNode.Release do
     end
   end
 
+  @doc """
+  Stops the release node on a given remote host
+  """
   def terminate(release_spec, %State{host: host_spec}) do
     with {:ok, node} <- to_node_name(release_spec, host_spec) do
       # demonitor node so that {:nodedown, node} message is not generated when
@@ -215,7 +244,7 @@ defmodule ControlNode.Release do
     end
   end
 
-  def connect_and_monitor(release_spec, host_spec, cookie) do
+  defp connect_and_monitor(release_spec, host_spec, cookie) do
     connect(release_spec, host_spec, cookie, true)
   end
 
