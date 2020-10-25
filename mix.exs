@@ -19,7 +19,7 @@ defmodule ControlNode.MixProject do
 
   defp description do
     """
-    Continuous Delivery and Orchestration as code for Elixir
+    Continuous Delivery and Orchestration as code for Elixir/Erlang
     """
   end
 
@@ -29,7 +29,7 @@ defmodule ControlNode.MixProject do
       maintainers: ["Vanshdeep Singh"],
       licenses: ["MIT"],
       links: %{
-        Documentation: "https://hexdocs.pm/control-node"
+        GitHub: "https://github.com/beamX/control-node"
       }
     ]
   end

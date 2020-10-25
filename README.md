@@ -1,13 +1,14 @@
 # Control Node
 
 ![ci-test](https://github.com/beamX/control-node/workflows/ci-test/badge.svg)
+[![Hex.pm Version](http://img.shields.io/hexpm/v/control_node.svg?style=flat)](https://hex.pm/packages/control_node)
+
 
 🚀 **Continuous Delivery and Orchestration as code for Elixir**
 
-## Installation
+- [Documentation](https://hexdocs.pm/control_node)
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `control_node` to your list of dependencies in `mix.exs`:
+## Installation
 
 ```elixir
 def deps do
@@ -16,10 +17,6 @@ def deps do
   ]
 end
 ```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/control_node](https://hexdocs.pm/control_node)
 
 ## TL;DR
 
