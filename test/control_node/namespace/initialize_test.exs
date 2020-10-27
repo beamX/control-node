@@ -5,6 +5,8 @@ defmodule ControlNode.Namespace.InitializeTest do
   alias ControlNode.{Release, Namespace}
   alias Namespace.Initialize
 
+  @moduletag capture_log: true
+
   describe "handle_event/4" do
     test "transitions to :deploy when release is running" do
       data = build_workflow_data("localhost2")
