@@ -1,6 +1,5 @@
 defmodule ControlNode.Namespace.Initialize do
   @moduledoc false
-
   @state_name :initialize
 
   # `Initialize` is the first state of the namespace FSM
@@ -9,6 +8,7 @@ defmodule ControlNode.Namespace.Initialize do
   # 2. Release is not running any host
   # 3. TODO Release is running on some or all hosts with different version
 
+  require Logger
   alias ControlNode.{Release, Namespace}
   alias Namespace.Workflow
 
@@ -41,13 +41,26 @@ defmodule ControlNode.Namespace.Initialize do
       # TODO: switch to deploy only when a host doesn't have a release running
       case has_unique_version?(namespace_state) do
         {true, version} ->
+          Logger.info(
+            "Release #{release_spec.name} with version #{version} running in namespace #{
+              namespace_spec.tag
+            }"
+          )
+
           {state, actions} = Namespace.Workflow.next(@state_name, :partially_running, version)
           {:next_state, state, data, actions}
 
         false ->
+          Logger.warn(
+            "Release #{release_spec.name} running different versions in namespace #{
+              namespace_spec.tag
+            }"
+          )
+
           {:next_state, :version_conflict, data}
       end
     else
+      Logger.info("Release #{release_spec.name} not running in namespace #{namespace_spec.tag}")
       {state, actions} = Namespace.Workflow.next(@state_name, :not_running, :ignore)
       {:next_state, state, data, actions}
     end
@@ -75,8 +88,20 @@ defmodule ControlNode.Namespace.Initialize do
 
     {namespace_status, new_deploy_attempts} =
       if is_current_version?(namespace_state, version) do
+        Logger.info(
+          "Release #{release_spec.name} with version #{version} running in namespace #{
+            namespace_spec.tag
+          }"
+        )
+
         {:running, 0}
       else
+        Logger.info(
+          "Release #{release_spec.name} with version #{version} partially running in namespace #{
+            namespace_spec.tag
+          }"
+        )
+
         {:partially_running, data.deploy_attempts}
       end
 
