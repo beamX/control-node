@@ -1,5 +1,6 @@
 defmodule ControlNode.ReleaseTest do
   use ExUnit.Case
+  import Mock
   import ControlNode.TestUtils
   alias ControlNode.Host.SSH
   alias ControlNode.{Release, Host, Registry, Inet}
@@ -26,7 +27,7 @@ defmodule ControlNode.ReleaseTest do
     }
   end
 
-  describe "deploy/4, connect/3, setup_tunnel/3" do
+  describe "deploy/4, connect/3" do
     test "uploads tar host, starts release and monitors it", %{
       release_spec: release_spec,
       host_spec: host_spec,
@@ -39,7 +40,7 @@ defmodule ControlNode.ReleaseTest do
       ensure_started(release_spec, host_spec)
 
       # setup tunnel to the service
-      {:ok, service_port} = Release.setup_tunnel(release_spec, Host.connect(host_spec))
+      {:ok, service_port} = setup_tunnel(release_spec, Host.connect(host_spec))
       {:ok, %Host.SSH{hostname: hostname} = host_spec} = Host.hostname(host_spec)
 
       # NOTE: Configure host config for inet
@@ -54,12 +55,12 @@ defmodule ControlNode.ReleaseTest do
       ensure_stopped(release_spec, host_spec)
 
       assert {:error, :release_not_running} ==
-               Release.setup_tunnel(release_spec, Host.connect(host_spec))
+               setup_tunnel(release_spec, Host.connect(host_spec))
     end
   end
 
   describe "initialize_state/3" do
-    test "Setup tunnel and return state of service on remote host", %{
+    setup %{
       release_spec: release_spec,
       host_spec: host_spec,
       registry_spec: registry_spec,
@@ -70,16 +71,41 @@ defmodule ControlNode.ReleaseTest do
       # ensure service is started
       ensure_started(release_spec, host_spec)
 
+      on_exit(fn ->
+        ensure_stopped(release_spec, host_spec)
+
+        assert %Release.State{version: nil, status: :not_running} =
+                 Release.initialize_state(release_spec, host_spec, cookie)
+      end)
+    end
+
+    test "Setup tunnel and return state of service on remote host", %{
+      release_spec: release_spec,
+      host_spec: host_spec,
+      cookie: cookie
+    } do
       assert %Release.State{host: host_spec, version: "0.1.0", status: :running} =
                Release.initialize_state(release_spec, host_spec, cookie)
 
       assert :pong == Node.ping(:"#{release_spec.name}@#{host_spec.hostname}")
-
       Release.stop(release_spec, host_spec)
-      ensure_stopped(release_spec, host_spec)
+    end
 
-      assert %Release.State{version: nil, status: :not_running} =
-               Release.initialize_state(release_spec, host_spec, cookie)
+    test "Setup tunnel and return state of service with nil version", %{
+      release_spec: release_spec,
+      host_spec: host_spec,
+      cookie: cookie
+    } do
+      mock_rpc_call = {:rpc, [:unstick], [call: &rpc_call/4]}
+
+      with_mocks([mock_rpc_call]) do
+        assert %Release.State{host: host_spec, version: "0.1.0", status: :running} =
+                 Release.initialize_state(release_spec, host_spec, cookie)
+      end
+
+      refute [] == Node.list()
+
+      exec_stop(release_spec, host_spec)
     end
   end
 
@@ -164,5 +190,15 @@ defmodule ControlNode.ReleaseTest do
 
       message == ["--rpc-eval : RPC failed with reason :nodedown\n"]
     end)
+  end
+
+  defp exec_stop(release_spec, host_spec) do
+    SSH.exec(host_spec, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} stop")
+  end
+
+  defp rpc_call(_node, :application, :get_key, _args), do: :undefined
+
+  defp rpc_call(_node, :release_handler, :which_releases, _args) do
+    [{'service_app', '0.1.0', [], :permanent}]
   end
 end

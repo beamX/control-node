@@ -22,6 +22,7 @@ defmodule ControlNode.Namespace.WorkflowTest do
       :ok
     end
 
+    @tag capture_log: true
     test "transitions to [state: :manage] when release is not running" do
       namespace_spec = build(:namespace_spec, hosts: [build(:host_spec)])
       {:ok, _pid} = ServiceApp.start_link(namespace_spec)

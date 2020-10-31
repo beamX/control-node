@@ -37,11 +37,9 @@ defmodule ControlNode.Host do
     end
   end
 
-  @spec tunnel_to_service(SSH.t(), integer) :: :ok
+  @spec tunnel_to_service(SSH.t(), integer) :: {:ok, integer}
   def tunnel_to_service(%SSH{} = host_spec, service_port) do
-    with {:ok, ^service_port} <- SSH.tunnel_port_to_server(host_spec, service_port) do
-      :ok
-    end
+    SSH.tunnel_port_to_server(host_spec, 0, service_port)
   end
 
   @spec hostname(SSH.t()) :: {:ok, binary}

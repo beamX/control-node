@@ -23,8 +23,14 @@ defmodule ControlNode.Release do
     * `:status` : Status of the release, possible values `:running | :not_running`
     """
 
-    @type t :: %__MODULE__{host: Host.SSH.t(), version: String.t(), status: atom, port: integer}
-    defstruct host: nil, version: nil, status: nil, port: nil
+    @type t :: %__MODULE__{
+            host: Host.SSH.t(),
+            version: String.t(),
+            status: atom,
+            port: integer,
+            tunnel_port: integer
+          }
+    defstruct host: nil, version: nil, status: nil, port: nil, tunnel_port: nil
   end
 
   defmacro __using__(opts) do
@@ -86,18 +92,38 @@ defmodule ControlNode.Release do
         service_port ->
           with %Host.SSH{} = host_spec <- Host.connect(host_spec),
                {:ok, host_spec} <- Host.hostname(host_spec) do
-            # register node locally
-            register_node(release_spec, host_spec, service_port)
-
             # Setup tunnel to release port on host
             # TODO/NOTE/WARN random local port should be used to avoid having a clash
             # if the releases use the same port on different hosts
-            :ok = Host.tunnel_to_service(host_spec, service_port)
+            {:ok, local_port} = Host.tunnel_to_service(host_spec, service_port)
+
+            # register node locally
+            register_node(release_spec, host_spec, local_port)
             true = connect_and_monitor(release_spec, host_spec, cookie)
 
-            {:ok, version} = get_version(release_spec, host_spec)
+            case get_version(release_spec, host_spec) do
+              {:ok, version} ->
+                %State{
+                  host: host_spec,
+                  version: version,
+                  status: :running,
+                  port: service_port,
+                  tunnel_port: local_port
+                }
 
-            %State{host: host_spec, version: version, status: :running, port: service_port}
+              _ ->
+                Logger.warn(
+                  "No version found for release #{release_spec.name} on host #{host_spec.host}"
+                )
+
+                %State{
+                  host: host_spec,
+                  version: nil,
+                  status: :running,
+                  port: service_port,
+                  tunnel_port: local_port
+                }
+            end
           end
       end
     end
@@ -178,8 +204,31 @@ defmodule ControlNode.Release do
 
   defp get_version(release_spec, host_spec) do
     {:ok, node} = to_node_name(release_spec, host_spec)
-    {:ok, vsn} = :rpc.call(node, :application, :get_key, [release_spec.name, :vsn])
-    {:ok, :erlang.list_to_binary(vsn)}
+
+    case :rpc.call(node, :application, :get_key, [release_spec.name, :vsn]) do
+      {:ok, vsn} ->
+        {:ok, :erlang.list_to_binary(vsn)}
+
+      :undefined ->
+        # It could be the case the application is an umbrella application
+        release_name = :erlang.atom_to_list(release_spec.name)
+
+        with {_name, vsn, _, _} <- get_release_version(node, release_name) do
+          {:ok, :erlang.list_to_binary(vsn)}
+        end
+    end
+  end
+
+  defp get_release_version(node, release_name) do
+    case :rpc.call(node, :release_handler, :which_releases, []) do
+      [_] = releases ->
+        Enum.find(releases, {:error, :release_not_found}, fn {name, _vsn, _, _} ->
+          name == release_name
+        end)
+
+      error ->
+        {:error, error}
+    end
   end
 
   @doc """
@@ -220,28 +269,6 @@ defmodule ControlNode.Release do
   defp is_connected?(node) do
     connected_nodes = :erlang.nodes(:connected)
     node in connected_nodes
-  end
-
-  @doc """
-  Creates a SSH tunnel to remote service and forwards a local port to
-  the remote service port.
-
-  NOTE: remote service's port is the one registered with the EPMD service
-  running on the remote host
-  """
-  @spec setup_tunnel(Spec.t(), Host.SSH.t()) ::
-          {:ok, integer} | {:error, :release_not_running}
-  def setup_tunnel(release_spec, host_spec) do
-    with {:ok, %Host.Info{services: services}} <- Host.info(host_spec) do
-      case Map.get(services, release_spec.name) do
-        nil ->
-          {:error, :release_not_running}
-
-        service_port when is_integer(service_port) ->
-          :ok = Host.tunnel_to_service(host_spec, service_port)
-          {:ok, service_port}
-      end
-    end
   end
 
   defp connect_and_monitor(release_spec, host_spec, cookie) do
