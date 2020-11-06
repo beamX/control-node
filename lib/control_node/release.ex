@@ -28,9 +28,10 @@ defmodule ControlNode.Release do
             version: String.t(),
             status: atom,
             port: integer,
-            tunnel_port: integer
+            tunnel_port: integer,
+            release_path: list
           }
-    defstruct host: nil, version: nil, status: nil, port: nil, tunnel_port: nil
+    defstruct host: nil, version: nil, status: nil, port: nil, tunnel_port: nil, release_path: nil
   end
 
   defmacro __using__(opts) do
@@ -101,31 +102,34 @@ defmodule ControlNode.Release do
             register_node(release_spec, host_spec, local_port)
             true = connect_and_monitor(release_spec, host_spec, cookie)
 
+            release_state = %State{
+              host: host_spec,
+              status: :running,
+              port: service_port,
+              tunnel_port: local_port,
+              release_path: release_path(release_spec, host_spec)
+            }
+
             case get_version(release_spec, host_spec) do
               {:ok, version} ->
-                %State{
-                  host: host_spec,
-                  version: version,
-                  status: :running,
-                  port: service_port,
-                  tunnel_port: local_port
-                }
+                %State{release_state | version: version}
 
               _ ->
                 Logger.warn(
                   "No version found for release #{release_spec.name} on host #{host_spec.host}"
                 )
 
-                %State{
-                  host: host_spec,
-                  version: nil,
-                  status: :running,
-                  port: service_port,
-                  tunnel_port: local_port
-                }
+                release_state
             end
           end
       end
+    end
+  end
+
+  defp release_path(release_spec, host_spec) do
+    with {:ok, node} <- to_node_name(release_spec, host_spec) do
+      :rpc.call(node, :code, :root_dir, [])
+      |> :erlang.list_to_binary()
     end
   end
 

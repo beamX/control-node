@@ -36,8 +36,8 @@ In order to use `control_node` you must ensure the following,
 
 - [x] Support multiple namespaces for a release
 - [x] Rollout releases to hosts via SSH
-- [ ] Support namespace environment variable configuration
 - [ ] Natively Monitor(health check)/restart nodes
+- [ ] Support namespace environment variable configuration
 - [ ] Hot upgrade your release config
 - [ ] Dynamically scale up/down your release instances
 - [ ] Rollback releases

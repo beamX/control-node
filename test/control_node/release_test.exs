@@ -84,8 +84,12 @@ defmodule ControlNode.ReleaseTest do
       host_spec: host_spec,
       cookie: cookie
     } do
-      assert %Release.State{host: host_spec, version: "0.1.0", status: :running} =
-               Release.initialize_state(release_spec, host_spec, cookie)
+      assert %Release.State{
+               host: host_spec,
+               version: "0.1.0",
+               status: :running,
+               release_path: "/app/service_app/0.1.0"
+             } = Release.initialize_state(release_spec, host_spec, cookie)
 
       assert :pong == Node.ping(:"#{release_spec.name}@#{host_spec.hostname}")
       Release.stop(release_spec, host_spec)
@@ -197,6 +201,8 @@ defmodule ControlNode.ReleaseTest do
   end
 
   defp rpc_call(_node, :application, :get_key, _args), do: :undefined
+
+  defp rpc_call(_node, :code, :root_dir, _args), do: '/app/service_app/0.1.0'
 
   defp rpc_call(_node, :release_handler, :which_releases, _args) do
     [{'service_app', '0.1.0', [], :permanent}]
