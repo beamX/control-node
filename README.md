@@ -14,29 +14,35 @@
 ```elixir
 def deps do
   [
-    {:control_node, "~> 0.1.0"}
+    {:control_node, "~> 0.2.0"}
   ]
 end
 ```
 
 ## TL;DR
 
-`control_node` is an Elixir library which allows you to build your own deployment
-and orchestration workflows i.e. given a release tar of an Elixir/Erlang project
-`control_node` allows you to deploy the release to hosts VMs and monitor the same thereafter.
+`control_node` is an Elixir library which offers APIs that allow you to build
+your own deployment and orchestration workflows. For a given a release tar of an
+Elixir/Erlang project `control_node` offers APIs to store and manage release tar
+via local registry and also deploy these release tar to remote hosts (via SSH) and
+monitor service nodes.
 
 ## Pre-requisites
 
 In order to use `control_node` you must ensure the following,
 
-- You are deploying to bare metal servers or virtual machines
-- Your Erlang/Elixir project when started should run the EPMD (it runs by default if you don't change the config)
+- You are deploying to virtual machines or bare metal servers. Control node
+  should have SSH access all these host machines where the releases will run.
+- Your Erlang/Elixir project when started should run the EPMD (it runs by
+  default if you don't change the config)
+
 
 ## Features
 
 - [x] Support multiple namespaces for a release
 - [x] Rollout releases to hosts via SSH
-- [ ] Natively Monitor(health check)/restart nodes
+- [x] Native node monitoring and restart on failover
+- [ ] Native service monitoring/health check
 - [ ] Support namespace environment variable configuration
 - [ ] Hot upgrade your release config
 - [ ] Dynamically scale up/down your release instances
@@ -118,8 +124,8 @@ AllowTcpForwarding yes
 
 ## Limitation
 
-- Only short names for nodes are allowed
-- Instances of same release (deployed to different) should have different
-  hostname i.e. for eg. if node 1 has node name `service_app@host1` then another
-  node of `service_app` should have a different node name.
-- SSH client cannot read new format of RSA keys, should be converted to PEM format
+- **SSH client only supports `ed25519` keys**
+- Only short names for nodes are allowed ie. `sevice_app@hostname` is support and **not** `sevice_app@host1.server.com`
+- Nodes of a given release (deployed to different) should have different
+  hostname for eg. if node 1 has node name `service_app@host1` then another node
+  of `service_app` should have a different node name.

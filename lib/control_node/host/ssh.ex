@@ -2,6 +2,8 @@ defmodule ControlNode.Host.SSH do
   @moduledoc """
   """
 
+  require Logger
+
   @enforce_keys [:host, :port, :user, :private_key_dir]
   defstruct host: nil,
             port: 22,
@@ -82,9 +84,14 @@ defmodule ControlNode.Host.SSH do
   def disconnect(%{conn: nil} = ssh_config), do: ssh_config
 
   def disconnect(%{conn: conn} = ssh_config) do
-    with :ok <- :ssh.close(conn) do
-      %{ssh_config | conn: nil}
+    try do
+      :ok = :ssh.close(conn)
+    catch
+      error, msg ->
+        Logger.error("Failed while disconnecting SSH connection #{inspect({error, msg})}")
     end
+
+    %{ssh_config | conn: nil}
   end
 
   @doc """

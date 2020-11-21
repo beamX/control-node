@@ -79,11 +79,15 @@ defmodule ControlNode.Namespace.Initialize do
   end
 
   def handle_event(:internal, {:load_namespace_state, version}, :initialize, data) do
-    %Workflow.Data{namespace_spec: namespace_spec, release_spec: release_spec} = data
+    %Workflow.Data{
+      namespace_spec: %Namespace.Spec{release_cookie: cookie} = namespace_spec,
+      namespace_state: namespace_state,
+      release_spec: release_spec
+    } = data
 
     namespace_state =
       Enum.map(namespace_spec.hosts, fn host_spec ->
-        Release.initialize_state(release_spec, host_spec, namespace_spec.release_cookie)
+        maybe_initalize_state(namespace_state, release_spec, host_spec, cookie)
       end)
 
     {namespace_status, new_deploy_attempts} =
@@ -96,7 +100,7 @@ defmodule ControlNode.Namespace.Initialize do
 
         {:running, 0}
       else
-        Logger.info(
+        Logger.warn(
           "Release #{release_spec.name} with version #{version} partially running in namespace #{
             namespace_spec.tag
           }"
@@ -142,5 +146,19 @@ defmodule ControlNode.Namespace.Initialize do
 
   defp is_running?(namespace_state) do
     Enum.any?(namespace_state, fn %{status: status} -> status == :running end)
+  end
+
+  defp maybe_initalize_state(namespace_state, release_spec, host_spec, cookie) do
+    Enum.find(namespace_state, fn %Release.State{host: host} ->
+      host.host == host_spec.host
+    end)
+    |> case do
+      nil ->
+        Release.initialize_state(release_spec, host_spec, cookie)
+
+      # TODO: maybe also validate the status: running
+      %Release.State{} = release_state ->
+        release_state
+    end
   end
 end

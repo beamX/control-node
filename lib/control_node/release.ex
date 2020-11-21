@@ -68,7 +68,7 @@ defmodule ControlNode.Release do
         data = %Namespace.Workflow.Data{
           release_spec: @release_spec,
           namespace_spec: namespace_spec,
-          namespace_state: nil
+          namespace_state: []
         }
 
         {state, actions} = Namespace.Workflow.init()
@@ -156,7 +156,7 @@ defmodule ControlNode.Release do
   @doc """
   Stops the release node on a given remote host
   """
-  def terminate(release_spec, %State{host: host_spec}) do
+  def stop(release_spec, %State{host: host_spec}) do
     with {:ok, node} <- to_node_name(release_spec, host_spec) do
       # demonitor node so that {:nodedown, node} message is not generated when
       # the node is stopped
@@ -256,23 +256,10 @@ defmodule ControlNode.Release do
     end
   end
 
-  @doc """
-  Stops the release running on `host_spec`
-  """
-  @spec stop(Spec.t(), Host.SSH.t()) :: term | {:badrpc, term}
-  def stop(%Spec{} = release_spec, host_spec) do
-    with {:ok, node} <- to_node_name(release_spec, host_spec) do
-      if is_connected?(node) do
-        :rpc.call(node, :init, :stop, [0])
-      else
-        {:error, :node_not_connected}
-      end
-    end
-  end
-
-  defp is_connected?(node) do
-    connected_nodes = :erlang.nodes(:connected)
-    node in connected_nodes
+  @spec start(Spec.t(), State.t()) :: term
+  def start(release_spec, %State{host: host_spec, release_path: release_path}) do
+    init_file = Path.join(release_path, "bin/#{release_spec.name}")
+    Host.init_release(host_spec, init_file, :start)
   end
 
   defp connect_and_monitor(release_spec, host_spec, cookie) do

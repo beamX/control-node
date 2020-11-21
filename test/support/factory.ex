@@ -34,7 +34,7 @@ defmodule ControlNode.Factory do
     %Namespace.Workflow.Data{
       release_spec: release_spec_factory(),
       namespace_spec: nil,
-      namespace_state: nil
+      namespace_state: []
     }
   end
 

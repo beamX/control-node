@@ -20,6 +20,28 @@ defmodule ControlNode.TestUtils do
     Path.join([File.cwd!(), "test/fixture", path]) |> to_char_list()
   end
 
+  def exec_stop(release_spec, host_spec) do
+    Host.SSH.exec(host_spec, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} stop")
+  end
+
+  def ensure_started(release_spec, host_spec) do
+    assert_until(fn ->
+      {:ok, %Host.SSH.ExecStatus{exit_status: exit_status}} =
+        Host.SSH.exec(host_spec, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} pid")
+
+      exit_status == :success
+    end)
+  end
+
+  def ensure_stopped(release_spec, host_spec) do
+    assert_until(fn ->
+      {:ok, %Host.SSH.ExecStatus{message: message}} =
+        Host.SSH.exec(host_spec, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} pid")
+
+      message == ["--rpc-eval : RPC failed with reason :nodedown\n"]
+    end)
+  end
+
   def assert_until(fun) do
     ExUnit.Assertions.assert(
       Enum.any?(0..20, fn _i ->

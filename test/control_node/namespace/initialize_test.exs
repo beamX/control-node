@@ -87,6 +87,27 @@ defmodule ControlNode.Namespace.InitializeTest do
       end
     end
 
+    test "on [event: {:load_namespace_state, version}] transitions to [state: :manage]\
+    when namespace_state has release with `version` is running" do
+      host1 = build(:host_spec, host: "localhost", hostname: "localhost")
+      host2 = build(:host_spec, host: "localhost2", hostname: "localhost2")
+      ns_spec = build(:namespace_spec, hosts: [host1, host2])
+      ns_state = [build(:release_state, host: host1), build(:release_state, host: host2)]
+      data = build(:workflow_data, namespace_spec: ns_spec, namespace_state: ns_state)
+
+      actions = [change_callback_module: ControlNode.Namespace.Manage]
+
+      assert {:next_state, :manage, data, next_actions} =
+               Initialize.handle_event(
+                 :internal,
+                 {:load_namespace_state, "0.1.0"},
+                 :initialize,
+                 data
+               )
+
+      assert next_actions == actions
+    end
+
     test "[event: {:load_namespace_state, version}] transitions to [state: :deploy]\
     when release with `version` is partially running" do
       data = build_workflow_data("localhost3")
