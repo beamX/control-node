@@ -51,7 +51,7 @@ defmodule ControlNode.ReleaseTest do
       true = Release.connect(release_spec, host_spec, cookie)
       assert :pong == Node.ping(:"#{release_spec.name}@#{hostname}")
 
-      Release.stop(release_spec, host_spec)
+      Release.stop(release_spec, %Release.State{host: host_spec})
       ensure_stopped(release_spec, host_spec)
 
       assert {:error, :release_not_running} ==
@@ -89,10 +89,10 @@ defmodule ControlNode.ReleaseTest do
                version: "0.1.0",
                status: :running,
                release_path: "/app/service_app/0.1.0"
-             } = Release.initialize_state(release_spec, host_spec, cookie)
+             } = release_state = Release.initialize_state(release_spec, host_spec, cookie)
 
       assert :pong == Node.ping(:"#{release_spec.name}@#{host_spec.hostname}")
-      Release.stop(release_spec, host_spec)
+      Release.stop(release_spec, release_state)
     end
 
     test "Setup tunnel and return state of service with nil version", %{
@@ -146,7 +146,7 @@ defmodule ControlNode.ReleaseTest do
       refute_receive {:nodedown, ^node}
     end
 
-    test "terminate/2 stop node and close SSH connection", %{
+    test "stop/2 stops node and close SSH connection", %{
       release_spec: release_spec,
       host_spec: host_spec,
       cookie: cookie
@@ -154,50 +154,11 @@ defmodule ControlNode.ReleaseTest do
       %{host: host_spec} =
         release_state = Release.initialize_state(release_spec, host_spec, cookie)
 
-      assert :ok = Release.terminate(release_spec, release_state)
+      assert :ok = Release.stop(release_spec, release_state)
 
       node = :"#{release_spec.name}@#{host_spec.hostname}"
       refute_receive {:nodedown, ^node}
     end
-  end
-
-  describe "stop/2" do
-    test "return error when node is not connected", %{
-      release_spec: release_spec,
-      host_spec: host_spec
-    } do
-      host_spec = %SSH{host_spec | hostname: :service_app@somehost}
-      assert {:error, :node_not_connected} == Release.stop(release_spec, host_spec)
-    end
-
-    test "return error hostname is nil", %{
-      release_spec: release_spec,
-      host_spec: host_spec
-    } do
-      assert {:error, :hostname_not_found} == Release.stop(release_spec, host_spec)
-    end
-  end
-
-  defp ensure_started(release_spec, host_spec) do
-    assert_until(fn ->
-      {:ok, %SSH.ExecStatus{exit_status: exit_status}} =
-        SSH.exec(host_spec, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} pid")
-
-      exit_status == :success
-    end)
-  end
-
-  defp ensure_stopped(release_spec, host_spec) do
-    assert_until(fn ->
-      {:ok, %SSH.ExecStatus{message: message}} =
-        SSH.exec(host_spec, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} pid")
-
-      message == ["--rpc-eval : RPC failed with reason :nodedown\n"]
-    end)
-  end
-
-  defp exec_stop(release_spec, host_spec) do
-    SSH.exec(host_spec, "#{release_spec.base_path}/0.1.0/bin/#{release_spec.name} stop")
   end
 
   defp rpc_call(_node, :application, :get_key, _args), do: :undefined

@@ -84,4 +84,13 @@ defmodule ControlNode.Namespace.Workflow do
 
     {:deploy, actions}
   end
+
+  def next(:manage, :nodedown, version) do
+    actions = [
+      {:change_callback_module, Namespace.Initialize},
+      {:next_event, :internal, {:load_namespace_state, version}}
+    ]
+
+    {:initialize, actions}
+  end
 end

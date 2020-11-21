@@ -8,7 +8,6 @@ defmodule ControlNode.Namespace.DeployTest do
     setup_with_mocks([
       {Release, [],
        [
-         terminate: &mock_terminate/2,
          terminate_state: &mock_terminate_state/2,
          deploy: &mock_deploy/4
        ]}
@@ -23,8 +22,10 @@ defmodule ControlNode.Namespace.DeployTest do
                Namespace.Deploy.handle_event(:internal, {:ensure_running, "0.2.0"}, :ignore, data)
 
       assert next_actions == expected_actions("0.2.0")
+      refute [] == data.namespace_state
     end
 
+    @tag capture_log: true
     test "transitions to [state: :initialize] after starting new deployment" do
       data = build_workflow_data("0.2.0")
 
@@ -54,12 +55,6 @@ defmodule ControlNode.Namespace.DeployTest do
       assert next_actions == expected_actions("0.3.0")
     end
   end
-
-  defp mock_terminate(_release_spec, %Release.State{version: "0.1.0"}) do
-    throw("Some exception")
-  end
-
-  defp mock_terminate(_release_spec, _release_state), do: :ok
 
   defp mock_deploy(_release_spec, %Release.State{version: "0.3.0"}, _registry_spec, _version) do
     throw("Some exception")

@@ -20,26 +20,32 @@ defmodule ControlNode.Namespace.Deploy do
       namespace_state: namespace_state
     } = data
 
-    Enum.map(namespace_state, fn
-      %Release.State{status: :running, version: ^version} ->
-        :ok
+    namespace_state =
+      Enum.map(namespace_state, fn
+        %Release.State{status: :running, version: ^version} = release_state ->
+          release_state
 
-      release_state ->
-        with {:error, {error, message}} <-
-               ensure_running(release_state, release_spec, registry_spec, version) do
-          # Either an error occurred when stopping the release or when deploying it
-          Logger.error(
-            "Failed while deploying release #{release_spec.name}",
-            error: error,
-            message: message,
-            release_state: inspect(release_state)
-          )
-        end
-    end)
+        release_state ->
+          with {:error, {error, message}} <-
+                 ensure_running(release_state, release_spec, registry_spec, version) do
+            # Either an error occurred when stopping the release or when deploying it
+            Logger.error(
+              "Failed while deploying release #{release_spec.name} to #{release_state.host.host}",
+              error: error,
+              message: message,
+              release_state: inspect(release_state)
+            )
+          end
 
-    # Since a new release is deployed that current namespace state is no longer valid
-    Enum.map(namespace_state, fn s -> Release.terminate_state(release_spec, s) end)
-    data = %Workflow.Data{data | namespace_state: nil, deploy_attempts: data.deploy_attempts + 1}
+          nil
+      end)
+      |> Enum.filter(fn e -> e end)
+
+    data = %Workflow.Data{
+      data
+      | namespace_state: namespace_state,
+        deploy_attempts: data.deploy_attempts + 1
+    }
 
     {state, actions} = Namespace.Workflow.next(@state_name, :executed, version)
     {:next_state, state, data, actions}
@@ -56,7 +62,7 @@ defmodule ControlNode.Namespace.Deploy do
          registry_spec,
          version
        ) do
-    with {:ok, host_spec} <- try_terminate(release_state, release_spec) do
+    with {:ok, host_spec} <- try_stop(release_state, release_spec) do
       try_deploy(release_spec, host_spec, registry_spec, version)
     end
   end
@@ -70,9 +76,9 @@ defmodule ControlNode.Namespace.Deploy do
     try_deploy(release_spec, host_spec, registry_spec, version)
   end
 
-  defp try_terminate(release_state, release_spec) do
+  defp try_stop(release_state, release_spec) do
     try do
-      :ok = Release.terminate(release_spec, release_state)
+      :ok = Release.stop(release_spec, release_state)
     catch
       error, message -> {:error, {error, message}}
     end

@@ -3,11 +3,50 @@ defmodule ControlNode.Namespace.WorkflowTest do
   import Mock
   import ControlNode.Factory
   import ControlNode.TestUtils
-  alias ControlNode.{Release, Namespace}
+  alias ControlNode.{Release, Namespace, Registry}
+
+  @moduletag capture_log: true
 
   defmodule ServiceApp do
     use ControlNode.Release,
       spec: %ControlNode.Release.Spec{name: :service_app, base_path: "/app/service_app"}
+  end
+
+  describe "[handle node failover] ServiceApp.start_link/1" do
+    setup do
+      host_spec = ssh_fixture()
+      release_spec = %Release.Spec{name: :service_app, base_path: "/app/service_app"}
+      registry_spec = %Registry.Local{path: Path.join(File.cwd!(), "example")}
+      cookie = :"YFWZXAOJGTABHNGIT6KVAC2X6TEHA6WCIRDKSLFD6JZWRC4YHMMA===="
+
+      :net_kernel.start([:control_node_test, :shortnames])
+      :ok = Release.deploy(release_spec, host_spec, registry_spec, "0.1.0")
+      ensure_started(release_spec, host_spec)
+
+      on_exit(fn ->
+        exec_stop(release_spec, host_spec)
+        ensure_stopped(release_spec, host_spec)
+        :net_kernel.stop()
+      end)
+
+      %{
+        host_spec: host_spec,
+        release_spec: release_spec,
+        registry_spec: registry_spec,
+        cookie: cookie
+      }
+    end
+
+    test "restarts node when node goes down", %{host_spec: host_spec, release_spec: release_spec} do
+      namespace_spec = build(:namespace_spec, hosts: [host_spec])
+      {:ok, _pid} = ServiceApp.start_link(namespace_spec)
+
+      assert_until(fn -> {:manage, _} = :sys.get_state(:service_app_testing) end)
+
+      exec_stop(release_spec, host_spec)
+      ensure_stopped(release_spec, host_spec)
+      ensure_started(release_spec, host_spec)
+    end
   end
 
   describe "ServiceApp.start_link/1" do
@@ -22,7 +61,6 @@ defmodule ControlNode.Namespace.WorkflowTest do
       :ok
     end
 
-    @tag capture_log: true
     test "transitions to [state: :manage] when release is not running" do
       namespace_spec = build(:namespace_spec, hosts: [build(:host_spec)])
       {:ok, _pid} = ServiceApp.start_link(namespace_spec)
@@ -41,7 +79,6 @@ defmodule ControlNode.Namespace.WorkflowTest do
       System.put_env("CONTROL_MODE", "MANAGE")
     end
 
-    @tag capture_log: true
     test "deploys release version; stopping after 5 failed attempts" do
       hosts = [build(:host_spec), build(:host_spec, host: "localhost2")]
       namespace_spec = build(:namespace_spec, hosts: hosts)

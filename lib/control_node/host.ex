@@ -37,6 +37,13 @@ defmodule ControlNode.Host do
     end
   end
 
+  @spec stop_release(SSH.t(), binary) :: :ok | :failure | {:error, any}
+  def stop_release(%SSH{} = host_spec, cmd) do
+    with {:ok, %SSH.ExecStatus{exit_code: 0}} <- SSH.exec(host_spec, "nohup #{cmd} stop") do
+      :ok
+    end
+  end
+
   @spec tunnel_to_service(SSH.t(), integer) :: {:ok, integer}
   def tunnel_to_service(%SSH{} = host_spec, service_port) do
     SSH.tunnel_port_to_server(host_spec, 0, service_port)
