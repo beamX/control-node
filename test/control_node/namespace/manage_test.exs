@@ -5,8 +5,9 @@ defmodule ControlNode.Namespace.ManageTest do
   alias ControlNode.{Release, Namespace}
   alias Namespace.Manage
 
+  @moduletag capture_log: true
+
   describe "handle_event/4" do
-    @tag capture_log: true
     test "transitions to :initialize when release node goes down" do
       data = build_workflow_data("localhost2")
 
@@ -26,7 +27,6 @@ defmodule ControlNode.Namespace.ManageTest do
       end
     end
 
-    @tag capture_log: true
     test "transitions to :initialize when release state termination fails" do
       data = build_workflow_data("localhost2")
 
@@ -45,7 +45,80 @@ defmodule ControlNode.Namespace.ManageTest do
     end
   end
 
+  describe "[event: :add_host] handle_event/4" do
+    test "transitions to :initialize when a new host is added" do
+      data = build_workflow_data("localhost2")
+      new_host = build(:host_spec, host: "new_host")
+
+      actions = [
+        {:reply, :ignore, :ok},
+        {:change_callback_module, ControlNode.Namespace.Initialize},
+        {:next_event, :internal, {:load_namespace_state, "0.1.0"}}
+      ]
+
+      assert {:next_state, :initialize, data, next_actions} =
+               Manage.handle_event({:call, :ignore}, {:add_host, new_host}, :ignore, data)
+
+      assert next_actions == actions
+      assert Enum.any?(data.namespace_spec.hosts, fn %{host: host} -> host == "new_host" end)
+      assert length(data.namespace_state) == 2
+      refute Enum.any?(data.namespace_state, fn %{host: %{host: host}} -> host == "new_host" end)
+    end
+
+    test "remains in state :manage when a new host already exists" do
+      data = build_workflow_data("localhost2")
+      new_host = build(:host_spec, host: "localhost2")
+
+      next_actions = [{:reply, :ignore, {:error, :host_already_exists}}]
+
+      assert {:keep_state_and_data, actions} =
+               Manage.handle_event({:call, :ignore}, {:add_host, new_host}, :ignore, data)
+
+      assert next_actions == actions
+      assert length(data.namespace_state) == 2
+      refute Enum.any?(data.namespace_spec.hosts, fn %{host: host} -> host == "new_host" end)
+      refute Enum.any?(data.namespace_state, fn %{host: %{host: host}} -> host == "new_host" end)
+    end
+  end
+
+  describe "[event: :remove_host] handle_event/4" do
+    test "stops service and removes host from namespace" do
+      data = build_workflow_data("localhost2")
+      actions = [{:reply, :ignore, :ok}]
+
+      with_mock Release, terminate_state: &mock_terminate_state_ok/2, stop: &mock_stop_ok/2 do
+        assert {:keep_state, data, next_actions} =
+                 Manage.handle_event(
+                   {:call, :ignore},
+                   {:remove_host, "localhost2"},
+                   :ignore,
+                   data
+                 )
+
+        assert next_actions == actions
+        assert length(data.namespace_state) == 1
+        refute Enum.any?(data.namespace_spec.hosts, fn %{host: host} -> host == "localhost2" end)
+
+        refute Enum.any?(data.namespace_state, fn %{host: host_spec} ->
+                 host_spec.host == "localhost2"
+               end)
+      end
+    end
+
+    test "return :ok when host doesn't exit in namespace" do
+      data = build_workflow_data("localhost2")
+      next_actions = [{:reply, :ignore, :ok}]
+
+      assert {:keep_state, data, actions} =
+               Manage.handle_event({:call, :ignore}, {:remove_host, "other_host"}, :ignore, data)
+
+      assert next_actions == actions
+      assert length(data.namespace_state) == 2
+    end
+  end
+
   defp mock_terminate_state_ok(_release_spec, _release_state), do: :ok
+  defp mock_stop_ok(_release_spec, _release_state), do: :ok
 
   defp build_workflow_data(another_host) do
     host1 = build(:host_spec, host: "localhost", hostname: "localhost")

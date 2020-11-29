@@ -3,9 +3,6 @@
 [![github.com](https://github.com/beamX/control-node/workflows/ci-test/badge.svg)](https://github.com/beamX/control-node/actions)
 [![hex.pm](https://img.shields.io/hexpm/v/control_node.svg)](https://hex.pm/packages/control_node)
 [![hexdocs.pm](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/control_node/)
-[![hex.pm](https://img.shields.io/hexpm/dt/control_node.svg)](https://hex.pm/packages/control_node)
-[![hex.pm](https://img.shields.io/hexpm/l/control_node.svg)](https://hex.pm/packages/control_node)
-[![github.com](https://img.shields.io/github/last-commit/beamX/control-node.svg)](https://github.com/beamX/control-node/commits/master)
 
 🚀 **Continuous Delivery and Orchestration as code for Elixir**
 
@@ -42,10 +39,10 @@ In order to use `control_node` you must ensure the following,
 - [x] Support multiple namespaces for a release
 - [x] Rollout releases to hosts via SSH
 - [x] Native node monitoring and restart on failover
+- [x] Dynamically scale up/down your release instances
 - [ ] Native service monitoring/health check
 - [ ] Support namespace environment variable configuration
 - [ ] Hot upgrade your release config
-- [ ] Dynamically scale up/down your release instances
 - [ ] Rollback releases
 
 ## Quick example
@@ -64,22 +61,30 @@ Start an SSH server locally where the release will be deployed,
 $ docker-compose up -d
 ```
 
-Start `iex` and define `ServiceApp` module which will offer API to deploy `service_app`,
+Start `iex` with distribution turned on
 ```elixir
 $ iex -S mix
 Erlang/OTP 23 [erts-11.0] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [hipe]
 
 Interactive Elixir (1.10.4) - press Ctrl+C to exit (type h() ENTER for help)
 iex(1)> :net_kernel.start([:control_node_test, :shortnames])
-iex(control_node_test@hostname)2> defmodule ServiceApp do
+iex(control_node_test@hostname)2> 
+```
+
+Execute the Elixir code snippets in the console,
+
+- Define `ServiceApp` module (copy paste the code in the console) which will offer
+API to deploy `service_app`,
+```elixir
+defmodule ServiceApp do
   use ControlNode.Release,
     spec: %ControlNode.Release.Spec{name: :service_app, base_path: "/app/service_app"}
 end
 ```
 
-Declare a `host_spec` which will hold the details of which host the release can be deployed to
+- Declare a `host_spec` which will hold the details of which host the release can be deployed to
 ```elixir
-iex(control_node_test@hostname)3> host_spec = %ControlNode.Host.SSH{
+host_spec = %ControlNode.Host.SSH{
   host: "localhost",
   port: 2222,
   user: "linuxserver.io",
@@ -87,13 +92,13 @@ iex(control_node_test@hostname)3> host_spec = %ControlNode.Host.SSH{
 }
 ```
 
-Declare a `namespace_spec` which define the namespace for a given release. Notice that the
+- Declare a `namespace_spec` which define the namespace for a given release. Notice that the
 namespace allows specifying a list of `hosts` and `registry`.
 A registry module offers API to retrieve the release tar and here we use a `Local` registry
 which will retrieve the release tar from the filesystem.
 
 ```elixir
-iex(control_node_test@hostname)4> namespace_spec = %ControlNode.Namespace.Spec{
+namespace_spec = %ControlNode.Namespace.Spec{
   tag: :testing,
   hosts: [host_spec],
   registry_spec: %ControlNode.Registry.Local{path: Path.join(File.cwd!(), "example")},
@@ -102,7 +107,7 @@ iex(control_node_test@hostname)4> namespace_spec = %ControlNode.Namespace.Spec{
 }
 ```
 
-Now we deploy the release to a given `namespace_spec` i.e. the release we be started on on
+- Now we deploy the release to a given `namespace_spec` i.e. the release we be started on on
 all the `hosts` specified in the namespace. Notice that once the deployment is finished
 `control_node_test@hostname` automatically connects to release nodes,
 

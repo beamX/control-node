@@ -11,7 +11,7 @@ defmodule ControlNode.Namespace.Workflow do
             release_spec: Release.Spec.t(),
             namespace_state: [Release.State.t()]
           }
-    defstruct namespace_spec: nil, release_spec: nil, namespace_state: nil, deploy_attempts: 0
+    defstruct namespace_spec: nil, release_spec: nil, namespace_state: [], deploy_attempts: 0
   end
 
   def init() do
@@ -85,7 +85,7 @@ defmodule ControlNode.Namespace.Workflow do
     {:deploy, actions}
   end
 
-  def next(:manage, :nodedown, version) do
+  def next(:manage, action, version) when action in [:nodedown, :new_host] do
     actions = [
       {:change_callback_module, Namespace.Initialize},
       {:next_event, :internal, {:load_namespace_state, version}}
