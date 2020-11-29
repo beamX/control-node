@@ -58,8 +58,8 @@ defmodule ControlNode.Release do
       Dynamically add a new host to a given namespace.
       NOTE: The Host should be added to NamespaceSpec to persist it across restarts
       """
-      @spec add_host(Host.SSH.t()) :: :ok | {:error, :host_already_exists}
-      def add_host(%Host.SSH{} = host) do
+      @spec add_host(atom, Host.SSH.t()) :: :ok | {:error, :host_already_exists}
+      def add_host(namespace_tag, %Host.SSH{} = host) do
         :gen_statem.call(name(namespace_tag), {:add_host, host})
       end
 
@@ -67,8 +67,8 @@ defmodule ControlNode.Release do
       Dynamically remove a host from a given namespace.
       NOTE: The Host should be removed from NamespaceSpec to persist changes across restarts
       """
-      @spec remove_host(:binary) :: :ok | {:error, :host_already_exists}
-      def remove_host(host) do
+      @spec remove_host(atom, binary) :: :ok | {:error, :host_already_exists}
+      def remove_host(namespace_tag, host) do
         :gen_statem.call(name(namespace_tag), {:remove_host, host})
       end
 
