@@ -47,8 +47,29 @@ defmodule ControlNode.Release do
         :gen_statem.call(name(namespace_tag), {:resolve_version, version})
       end
 
+      @doc """
+      Deploy a new version of the service to the given namespace.
+      """
       def deploy(namespace_tag, version) do
         :gen_statem.call(name(namespace_tag), {:deploy, version})
+      end
+
+      @doc """
+      Dynamically add a new host to a given namespace.
+      NOTE: The Host should be added to NamespaceSpec to persist it across restarts
+      """
+      @spec add_host(Host.SSH.t()) :: :ok | {:error, :host_already_exists}
+      def add_host(%Host.SSH{} = host) do
+        :gen_statem.call(name(namespace_tag), {:add_host, host})
+      end
+
+      @doc """
+      Dynamically remove a host from a given namespace.
+      NOTE: The Host should be removed from NamespaceSpec to persist changes across restarts
+      """
+      @spec remove_host(:binary) :: :ok | {:error, :host_already_exists}
+      def remove_host(host) do
+        :gen_statem.call(name(namespace_tag), {:remove_host, host})
       end
 
       defp name(tag), do: :"#{@release_name}_#{tag}"
