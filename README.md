@@ -33,14 +33,14 @@ In order to use `control_node` you must ensure the following,
 - Your Erlang/Elixir project when started should run the EPMD (it runs by
   default if you don't change the config)
 
-
 ## Features
 
 - [x] Support multiple namespaces for a release
 - [x] Rollout releases to hosts via SSH
 - [x] Native node monitoring and restart on failover
 - [x] Dynamically scale up/down your release instances
-- [ ] Native service monitoring/health check
+- [x] Native service monitoring/health check
+- [x] Blue-Green deployment
 - [ ] Support namespace environment variable configuration
 - [ ] Hot upgrade your release config
 - [ ] Rollback releases

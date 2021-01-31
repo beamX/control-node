@@ -2,6 +2,25 @@ defmodule ControlNode.Release do
   require Logger
   alias ControlNode.{Host, Registry, Epmd, Inet}
 
+  defmodule HealthCheckSpec do
+    @typedoc """
+    Release.HealthCheckSpec defines health check configuration for the release.
+
+    * `:function` : Health check function which will be evaluated in the release nodes.
+    * `:interval` : Time interval after which health function shall be evaluated
+      on release nodes.
+    * `:on_failure` : Action to perform when node(s) failure is detected. Allowed values
+    `:reboot | :noop`
+    """
+
+    @type t :: %__MODULE__{
+            function: (() -> :ok | any),
+            interval: pos_integer(),
+            on_failure: atom
+          }
+    defstruct function: nil, interval: 5, on_failure: :reboot
+  end
+
   defmodule Spec do
     @typedoc """
     Release.Spec defines configuration for the release to be deployed and monitored.
@@ -10,13 +29,17 @@ defmodule ControlNode.Release do
     * `:base_path` : Path on remote host where the release should be uploaded
     """
 
-    @type t :: %__MODULE__{name: atom, base_path: String.t()}
-    defstruct name: nil, base_path: nil
+    @type t :: %__MODULE__{
+            name: atom,
+            base_path: String.t(),
+            health_check_spec: HealthCheckSpec.t()
+          }
+    defstruct name: nil, base_path: nil, health_check_spec: %HealthCheckSpec{}
   end
 
   defmodule State do
     @typedoc """
-    `Release.Spec` defines the configuration for the release to be deployed and monitored.
+    `Release.State` defines the configuration for the release to be deployed and monitored.
 
     * `:host` : Spec of remote host where the release will be deployed and  where
     * `:version` : Version number of the release
@@ -152,6 +175,14 @@ defmodule ControlNode.Release do
       :rpc.call(node, :code, :root_dir, [])
       |> :erlang.list_to_binary()
     end
+  end
+
+  def schedule_health_check(nil), do: nil
+
+  def schedule_health_check(%HealthCheckSpec{function: nil}), do: nil
+
+  def schedule_health_check(%HealthCheckSpec{interval: interval}) do
+    :erlang.send_after(interval * 1000, self(), :check_health)
   end
 
   @doc """
@@ -306,8 +337,8 @@ defmodule ControlNode.Release do
     end
   end
 
-  defp to_node_name(_release_spec, %Host.SSH{hostname: nil}), do: {:error, :hostname_not_found}
+  def to_node_name(_release_spec, %Host.SSH{hostname: nil}), do: {:error, :hostname_not_found}
 
-  defp to_node_name(release_spec, host_spec),
+  def to_node_name(release_spec, host_spec),
     do: {:ok, :"#{release_spec.name}@#{host_spec.hostname}"}
 end

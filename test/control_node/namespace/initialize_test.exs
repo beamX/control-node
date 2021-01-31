@@ -36,7 +36,11 @@ defmodule ControlNode.Namespace.InitializeTest do
     test "transitions to :manage when no release is running" do
       namespace_spec = build(:namespace_spec, hosts: [build(:host_spec, host: "localhost3")])
       data = build(:workflow_data, namespace_spec: namespace_spec)
-      actions = [{:change_callback_module, ControlNode.Namespace.Manage}]
+
+      actions = [
+        {:change_callback_module, ControlNode.Namespace.Manage},
+        {:next_event, :internal, :schedule_health_check}
+      ]
 
       with_mock Release, initialize_state: &mock_initialize_state/3 do
         assert {:next_state, :manage, data, next_actions} =
@@ -72,7 +76,11 @@ defmodule ControlNode.Namespace.InitializeTest do
     test "on [event: {:load_namespace_state, version}] transitions to [state: :manage]\
     when release with `version` is running" do
       data = build_workflow_data("localhost2")
-      actions = [change_callback_module: ControlNode.Namespace.Manage]
+
+      actions = [
+        {:change_callback_module, ControlNode.Namespace.Manage},
+        {:next_event, :internal, :schedule_health_check}
+      ]
 
       with_mock Release, initialize_state: &mock_initialize_state/3 do
         assert {:next_state, :manage, data, next_actions} =
@@ -95,7 +103,10 @@ defmodule ControlNode.Namespace.InitializeTest do
       ns_state = [build(:release_state, host: host1), build(:release_state, host: host2)]
       data = build(:workflow_data, namespace_spec: ns_spec, namespace_state: ns_state)
 
-      actions = [change_callback_module: ControlNode.Namespace.Manage]
+      actions = [
+        {:change_callback_module, ControlNode.Namespace.Manage},
+        {:next_event, :internal, :schedule_health_check}
+      ]
 
       assert {:next_state, :manage, data, next_actions} =
                Initialize.handle_event(
@@ -164,7 +175,11 @@ defmodule ControlNode.Namespace.InitializeTest do
     test "[event: {:load_namespace_state, version}] transitions to [state: :manage]\
     resets deploy_attempts" do
       data = %{build_workflow_data("localhost2") | deploy_attempts: 3}
-      actions = [change_callback_module: Namespace.Manage]
+
+      actions = [
+        {:change_callback_module, Namespace.Manage},
+        {:next_event, :internal, :schedule_health_check}
+      ]
 
       with_mock Release, initialize_state: &mock_initialize_state/3 do
         assert {:next_state, :manage, %{deploy_attempts: attempts}, next_actions} =
