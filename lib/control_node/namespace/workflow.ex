@@ -9,9 +9,14 @@ defmodule ControlNode.Namespace.Workflow do
     @type t :: %__MODULE__{
             namespace_spec: Namespace.Spec.t(),
             release_spec: Release.Spec.t(),
-            namespace_state: [Release.State.t()]
+            namespace_state: [Release.State.t()],
+            health_check_timer: reference()
           }
-    defstruct namespace_spec: nil, release_spec: nil, namespace_state: [], deploy_attempts: 0
+    defstruct namespace_spec: nil,
+              release_spec: nil,
+              namespace_state: [],
+              deploy_attempts: 0,
+              health_check_timer: nil
   end
 
   def init() do
@@ -40,11 +45,7 @@ defmodule ControlNode.Namespace.Workflow do
   When there is no release running on any host for a given namespace, the workflow
   switches to managing the namespace and wait request for new deployment
   """
-  def next(:initialize, :not_running, _) do
-    actions = [{:change_callback_module, Namespace.Manage}]
-
-    {:manage, actions}
-  end
+  def next(:initialize, :not_running, _), do: enter_state(:manage)
 
   def next(:initialize, :partially_running, version) do
     actions = [
@@ -55,11 +56,7 @@ defmodule ControlNode.Namespace.Workflow do
     {:deploy, actions}
   end
 
-  def next(:initialize, :running, _version) do
-    actions = [{:change_callback_module, Namespace.Manage}]
-
-    {:manage, actions}
-  end
+  def next(:initialize, :running, _version), do: enter_state(:manage)
 
   def next(:initialize, :observe_namespace_state, _version) do
     actions = [{:change_callback_module, Namespace.Observe}]
@@ -92,5 +89,14 @@ defmodule ControlNode.Namespace.Workflow do
     ]
 
     {:initialize, actions}
+  end
+
+  defp enter_state(:manage) do
+    actions = [
+      {:change_callback_module, Namespace.Manage},
+      {:next_event, :internal, :schedule_health_check}
+    ]
+
+    {:manage, actions}
   end
 end

@@ -55,6 +55,7 @@ defmodule ControlNode.Namespace.WorkflowTest do
        [
          initialize_state: &mock_initialize_state/3,
          terminate_state: &mock_terminate_state/2,
+         schedule_health_check: &mock_schedule_health_check/1,
          deploy: &mock_deploy/4
        ]}
     ]) do
@@ -123,4 +124,6 @@ defmodule ControlNode.Namespace.WorkflowTest do
   end
 
   defp mock_terminate_state(_, _), do: :ok
+
+  defp mock_schedule_health_check(%Release.HealthCheckSpec{}), do: :ok
 end

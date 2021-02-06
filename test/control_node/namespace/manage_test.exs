@@ -117,6 +117,59 @@ defmodule ControlNode.Namespace.ManageTest do
     end
   end
 
+  describe "[event: :schedule_health_check] handle_event/4" do
+    test "initializes health check" do
+      release_spec =
+        build(:release_spec, health_check_spec: %Release.HealthCheckSpec{function: fn -> :ok end})
+
+      data = %{build_workflow_data("localhost2") | release_spec: release_spec}
+
+      assert {:keep_state, data, []} =
+               Manage.handle_event(:internal, :schedule_health_check, :ignore, data)
+
+      assert is_reference(data.health_check_timer)
+    end
+  end
+
+  describe "[event: :check_health] handle_event/4" do
+    setup_with_mocks([
+      {:erpc, [:unstick], [multicall: &erpc_multicall/4]}
+    ]) do
+      :ok
+    end
+
+    test "performs health check and keeps state when health check passes" do
+      data = build_workflow_data("localhost2")
+
+      assert {:keep_state, data, []} =
+               Manage.handle_event(:internal, :check_health, :ignore, data)
+    end
+
+    test "perform health check and removes nodes which failed health check" do
+      data = build_workflow_data("localhost3")
+
+      actions = [
+        {:change_callback_module, Namespace.Initialize},
+        {:next_event, :internal, {:load_namespace_state, "0.1.0"}}
+      ]
+
+      assert {:next_state, :initialize, data, ^actions} =
+               Manage.handle_event(:internal, :check_health, :ignore, data)
+
+      assert [%Release.State{host: %{host: "localhost"}}] = data.namespace_state
+    end
+
+    test "[health_check.on_failure: :noop] when nodes fail health check does not reboot" do
+      release_spec =
+        build(:release_spec, health_check_spec: %Release.HealthCheckSpec{on_failure: :noop})
+
+      data = %{build_workflow_data("localhost3") | release_spec: release_spec}
+
+      assert {:keep_state, data, []} =
+               Manage.handle_event(:internal, :check_health, :ignore, data)
+    end
+  end
+
   defp mock_terminate_state_ok(_release_spec, _release_state), do: :ok
   defp mock_stop_ok(_release_spec, _release_state), do: :ok
 
@@ -126,5 +179,13 @@ defmodule ControlNode.Namespace.ManageTest do
     namespace_spec = build(:namespace_spec, hosts: [host1, host2])
     namespace_state = [build(:release_state, host: host1), build(:release_state, host: host2)]
     build(:workflow_data, namespace_spec: namespace_spec, namespace_state: namespace_state)
+  end
+
+  defp erpc_multicall([:service_app@localhost, :service_app@localhost3], _m, _f, _a) do
+    [{:ok, :ok}, {:ok, :error}]
+  end
+
+  defp erpc_multicall(_nodes, _m, _f, _a) do
+    [{:ok, :ok}, {:ok, :ok}]
   end
 end
