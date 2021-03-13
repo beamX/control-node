@@ -18,10 +18,11 @@ end
 
 ## TL;DR
 
-`control_node` is an Elixir library which offers APIs that allows to you to build
-your own deployment and orchestration workflows. For a given a release tar of an
+`control_node` is an Elixir library which offers APIs that allows to build
+custom deployment and orchestration workflows. For a given a release tar of an
 Elixir/Erlang project `control_node` offers APIs to store and manage release tar
-via local registry and deploy releases to remote hosts (via SSH) and monitor service nodes.
+via local registry and deploy releases to remote hosts (via SSH) and monitor
+service nodes.
 
 
 ## Pre-requisites
@@ -47,8 +48,9 @@ In order to use `control_node` you must ensure the following,
 
 ## Quick example
 
-This library ships with an example `service_app` under `example/` folder. You can try out this library
-by trying to deploy the release using the following steps,
+This library ships with an example `service_app` under `example/` folder. You
+can try out this library by trying to deploy the release using the following
+steps,
 
 Clone the repo
 ```
@@ -107,14 +109,15 @@ namespace_spec = %ControlNode.Namespace.Spec{
 }
 ```
 
-- Now we deploy the release to a given `namespace_spec` i.e. the release we be started on on
-all the `hosts` specified in the namespace. Notice that once the deployment is finished
-`control_node_test@hostname` automatically connects to release nodes,
+- Now we deploy the release to a given `namespace_spec` i.e. the release we be
+  started on on all the `hosts` specified in the namespace. Notice that once the
+  deployment is finished `control_node_test@hostname` automatically connects to
+  release nodes,
 
 ```elixir
-iex(control_node_test@hostname)5> ServiceApp.start_link(namespace_spec)
-iex(control_node_test@hostname)6> ServiceApp.deploy(:testing, "0.1.0")
-iex(control_node_test@hostname)7> Node.list()
+ServiceApp.start_link(namespace_spec)
+ServiceApp.deploy(:testing, "0.1.0")
+Node.list()
 ```
 
 ### SSH server config to enable tunneling
