@@ -15,7 +15,7 @@ defmodule ControlNode.Namespace.Deploy do
 
   def handle_event(:internal, {:ensure_running, version}, _state, data) do
     %Workflow.Data{
-      namespace_spec: %{registry_spec: registry_spec},
+      namespace_spec: %Namespace.Spec{registry_spec: registry_spec, control_mode: control_mode},
       release_spec: release_spec,
       namespace_state: namespace_state
     } = data
@@ -47,7 +47,7 @@ defmodule ControlNode.Namespace.Deploy do
         deploy_attempts: data.deploy_attempts + 1
     }
 
-    {state, actions} = Namespace.Workflow.next(@state_name, :executed, version)
+    {state, actions} = Namespace.Workflow.next(@state_name, :executed, {control_mode, version})
     {:next_state, state, data, actions}
   end
 

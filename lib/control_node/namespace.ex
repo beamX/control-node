@@ -14,6 +14,12 @@ defmodule ControlNode.Namespace do
     * `:release_cookie` : Release cookie used by the release in this given
       namespace. This cookie will be used by control node to connect to the
       release nodes
+     * `:control_mode` : Configures mode for the given namespace, default
+       `"MANAGE"` . Other possible value is `"OBSERVE" | "CONNECT"` . In
+       `"OBSERVE"` mode user will only be allowed to deploy and observe a
+       release i.e. no failover mechanism are avaiable. In `"CONNECT"` mode the
+       control will just connect to release nodes and no other operation (like
+       deploy or failover) are executed.
     """
 
     @type t :: %__MODULE__{
@@ -28,7 +34,8 @@ defmodule ControlNode.Namespace do
               registry_spec: nil,
               deployment_type: :incremental_replace,
               release_management: :replica,
-              release_cookie: nil
+              release_cookie: nil,
+              control_mode: "MANAGE"
   end
 
   def add_host(%Spec{hosts: hosts} = namespace_spec, %Host.SSH{host: new_host} = host_spec) do

@@ -19,23 +19,28 @@ defmodule ControlNode.Namespace.Workflow do
               health_check_timer: nil
   end
 
-  def init() do
-    init(System.get_env("CONTROL_MODE", "MANAGE"))
-  end
-
-  defp init("MANAGE") do
+  def init("CONNECT") do
     actions = [
       {:change_callback_module, ControlNode.Namespace.Initialize},
-      {:next_event, :internal, :load_namespace_state}
+      {:next_event, :internal, :connect_namespace_state}
     ]
 
     {:initialize, actions}
   end
 
-  defp init("OBSERVE") do
+  def init("OBSERVE") do
     actions = [
       {:change_callback_module, ControlNode.Namespace.Initialize},
       {:next_event, :internal, :observe_namespace_state}
+    ]
+
+    {:initialize, actions}
+  end
+
+  def init("MANAGE") do
+    actions = [
+      {:change_callback_module, ControlNode.Namespace.Initialize},
+      {:next_event, :internal, :load_namespace_state}
     ]
 
     {:initialize, actions}
@@ -58,13 +63,28 @@ defmodule ControlNode.Namespace.Workflow do
 
   def next(:initialize, :running, _version), do: enter_state(:manage)
 
-  def next(:initialize, :observe_namespace_state, _version) do
+  def next(:initialize, :connect_namespace_state, _) do
+    actions = [{:change_callback_module, Namespace.Connect}]
+
+    {:connect, actions}
+  end
+
+  def next(:initialize, :observe_namespace_state, _) do
     actions = [{:change_callback_module, Namespace.Observe}]
 
     {:observe, actions}
   end
 
-  def next(:deploy, :executed, version) do
+  def next(:deploy, :executed, {"OBSERVE", _version}) do
+    actions = [
+      {:change_callback_module, Namespace.Initialize},
+      {:next_event, :internal, :observe_namespace_state}
+    ]
+
+    {:initialize, actions}
+  end
+
+  def next(:deploy, :executed, {"MANAGE", version}) do
     actions = [
       {:change_callback_module, Namespace.Initialize},
       {:next_event, :internal, {:load_namespace_state, version}}
@@ -73,7 +93,7 @@ defmodule ControlNode.Namespace.Workflow do
     {:initialize, actions}
   end
 
-  def next(:manage, :trigger_deployment, version) do
+  def next(state_name, :trigger_deployment, version) when state_name in [:observe, :manage] do
     actions = [
       {:change_callback_module, Namespace.Deploy},
       {:next_event, :internal, {:ensure_running, version}}

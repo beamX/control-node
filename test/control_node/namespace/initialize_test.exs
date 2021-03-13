@@ -211,6 +211,23 @@ defmodule ControlNode.Namespace.InitializeTest do
         assert next_actions == [{:change_callback_module, Namespace.Observe}]
       end
     end
+
+    test "[event: :connect_namespace_state] transitions to [state: :connect]" do
+      namespace_spec = build(:namespace_spec, hosts: [build(:host_spec)])
+      data = build(:workflow_data, namespace_spec: namespace_spec)
+
+      with_mock Release, initialize_state: &mock_initialize_state/3 do
+        assert {:next_state, :connect, data, next_actions} =
+                 Initialize.handle_event(
+                   :internal,
+                   :connect_namespace_state,
+                   :initialize,
+                   data
+                 )
+
+        assert next_actions == [{:change_callback_module, Namespace.Connect}]
+      end
+    end
   end
 
   defp mock_initialize_state(_release_spec, %{host: "localhost3"} = host_spec, _cookie) do

@@ -14,7 +14,8 @@ defmodule ControlNode.Namespace.Initialize do
 
   def callback_mode, do: :handle_event_function
 
-  def handle_event(:internal, :observe_namespace_state, :initialize, data) do
+  def handle_event(:internal, current_state, :initialize, data)
+      when current_state in [:observe_namespace_state, :connect_namespace_state] do
     %Workflow.Data{namespace_spec: namespace_spec, release_spec: release_spec} = data
 
     namespace_state =
@@ -23,8 +24,8 @@ defmodule ControlNode.Namespace.Initialize do
       end)
 
     data = %Workflow.Data{data | namespace_state: namespace_state}
-    {state, actions} = Namespace.Workflow.next(@state_name, :observe_namespace_state, nil)
-    {:next_state, state, data, actions}
+    {next_state, actions} = Namespace.Workflow.next(@state_name, current_state, nil)
+    {:next_state, next_state, data, actions}
   end
 
   def handle_event(:internal, :load_namespace_state, :initialize, data) do

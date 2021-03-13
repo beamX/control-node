@@ -11,18 +11,18 @@
 ```elixir
 def deps do
   [
-    {:control_node, "~> 0.2.0"}
+    {:control_node, "~> 0.3.0"}
   ]
 end
 ```
 
 ## TL;DR
 
-`control_node` is an Elixir library which offers APIs that allow you to build
+`control_node` is an Elixir library which offers APIs that allows to you to build
 your own deployment and orchestration workflows. For a given a release tar of an
 Elixir/Erlang project `control_node` offers APIs to store and manage release tar
-via local registry and also deploy these release tar to remote hosts (via SSH) and
-monitor service nodes.
+via local registry and deploy releases to remote hosts (via SSH) and monitor service nodes.
+
 
 ## Pre-requisites
 
@@ -41,8 +41,8 @@ In order to use `control_node` you must ensure the following,
 - [x] Dynamically scale up/down your release instances
 - [x] Native service monitoring/health check
 - [x] Blue-Green deployment
+- [x] Support failover via [heart](http://erlang.org/doc/man/heart.html)
 - [ ] Support namespace environment variable configuration
-- [ ] Hot upgrade your release config
 - [ ] Rollback releases
 
 ## Quick example

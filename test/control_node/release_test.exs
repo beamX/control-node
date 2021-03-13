@@ -4,6 +4,7 @@ defmodule ControlNode.ReleaseTest do
   import ControlNode.TestUtils
   alias ControlNode.Host.SSH
   alias ControlNode.{Release, Host, Registry, Inet}
+  alias ControlNode.Test.Support.ServiceApp
 
   setup do
     host_spec = ssh_fixture()
@@ -25,6 +26,38 @@ defmodule ControlNode.ReleaseTest do
       registry_spec: registry_spec,
       cookie: cookie
     }
+  end
+
+  describe "init/1" do
+    test "default :control_mode is set to MANAGE" do
+      namespace_spec = %ControlNode.Namespace.Spec{tag: :testing}
+      {:ok, :initialize, _data, actions} = ServiceApp.init(namespace_spec)
+
+      assert [
+               {:change_callback_module, ControlNode.Namespace.Initialize},
+               {:next_event, :internal, :load_namespace_state}
+             ] == actions
+    end
+
+    test "[control_mode: OBSERVE] next event is set to :observe_namespace_state" do
+      namespace_spec = %ControlNode.Namespace.Spec{tag: :testing, control_mode: "OBSERVE"}
+      {:ok, :initialize, _data, actions} = ServiceApp.init(namespace_spec)
+
+      assert [
+               {:change_callback_module, ControlNode.Namespace.Initialize},
+               {:next_event, :internal, :observe_namespace_state}
+             ] == actions
+    end
+
+    test "[control_mode: CONNECT] next event is set to :connect_namespace_state" do
+      namespace_spec = %ControlNode.Namespace.Spec{tag: :testing, control_mode: "CONNECT"}
+      {:ok, :initialize, _data, actions} = ServiceApp.init(namespace_spec)
+
+      assert [
+               {:change_callback_module, ControlNode.Namespace.Initialize},
+               {:next_event, :internal, :connect_namespace_state}
+             ] == actions
+    end
   end
 
   describe "deploy/4, connect/3" do

@@ -2,7 +2,7 @@ defmodule ControlNode.Namespace.DeployTest do
   use ExUnit.Case, async: false
   import Mock
   import ControlNode.Factory
-  alias ControlNode.{Release, Namespace}
+  alias ControlNode.{Release, Namespace, Namespace.Workflow}
 
   describe "handle_event/4 [:ensure_running, version]" do
     setup_with_mocks([
@@ -22,6 +22,22 @@ defmodule ControlNode.Namespace.DeployTest do
                Namespace.Deploy.handle_event(:internal, {:ensure_running, "0.2.0"}, :ignore, data)
 
       assert next_actions == expected_actions("0.2.0")
+      refute [] == data.namespace_state
+    end
+
+    test "transitions to [state: :initialize] with next event :observe_namespace_state \
+          when release `version` is already running" do
+      %Workflow.Data{namespace_spec: ns} = data = build_workflow_data("0.2.0")
+      data = %Workflow.Data{data | namespace_spec: %Namespace.Spec{ns | control_mode: "OBSERVE"}}
+
+      assert {:next_state, :initialize, data, next_actions} =
+               Namespace.Deploy.handle_event(:internal, {:ensure_running, "0.2.0"}, :ignore, data)
+
+      assert [
+               {:change_callback_module, ControlNode.Namespace.Initialize},
+               {:next_event, :internal, :observe_namespace_state}
+             ] == next_actions
+
       refute [] == data.namespace_state
     end
 
