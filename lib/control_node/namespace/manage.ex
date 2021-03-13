@@ -2,11 +2,13 @@ defmodule ControlNode.Namespace.Manage do
   @moduledoc false
 
   @state_name :manage
+
   require Logger
   alias ControlNode.{Namespace, Namespace.Workflow, Release}
 
   def callback_mode, do: :handle_event_function
 
+  # NOTE: deploy event is also handled in :observe state
   def handle_event({:call, from}, {:deploy, version}, _state, data) do
     {state, actions} = Workflow.next(@state_name, :trigger_deployment, version)
     actions = [{:reply, from, :ok} | actions]

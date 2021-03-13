@@ -97,7 +97,7 @@ defmodule ControlNode.Release do
 
       defp name(tag), do: :"#{@release_name}_#{tag}"
 
-      def start_link(namespace_spec) do
+      def start_link(%Namespace.Spec{} = namespace_spec) do
         name = {:local, name(namespace_spec.tag)}
         :gen_statem.start_link(name, __MODULE__, namespace_spec, [])
       end
@@ -106,7 +106,10 @@ defmodule ControlNode.Release do
       def callback_mode, do: :handle_event_function
 
       @impl :gen_statem
-      def init(namespace_spec) do
+      def init(%Namespace.Spec{control_mode: control_mode} = namespace_spec) do
+        control_mode = System.get_env("CONTROL_MODE", nil) || control_mode
+        namespace_spec = %Namespace.Spec{namespace_spec | control_mode: control_mode}
+
         %Release.Spec{} = @release_spec
 
         data = %Namespace.Workflow.Data{
@@ -115,7 +118,7 @@ defmodule ControlNode.Release do
           namespace_state: []
         }
 
-        {state, actions} = Namespace.Workflow.init()
+        {state, actions} = Namespace.Workflow.init(control_mode)
         {:ok, state, data, actions}
       end
     end
