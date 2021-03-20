@@ -9,12 +9,12 @@ defmodule ControlNode.Namespace.Workflow do
     @type t :: %__MODULE__{
             namespace_spec: Namespace.Spec.t(),
             release_spec: Release.Spec.t(),
-            namespace_state: [Release.State.t()],
+            release_state: Release.State.t(),
             health_check_timer: reference()
           }
     defstruct namespace_spec: nil,
               release_spec: nil,
-              namespace_state: [],
+              release_state: nil,
               deploy_attempts: 0,
               health_check_timer: nil
   end
@@ -22,7 +22,7 @@ defmodule ControlNode.Namespace.Workflow do
   def init("CONNECT") do
     actions = [
       {:change_callback_module, ControlNode.Namespace.Initialize},
-      {:next_event, :internal, :connect_namespace_state}
+      {:next_event, :internal, :connect_release_state}
     ]
 
     {:initialize, actions}
@@ -31,7 +31,7 @@ defmodule ControlNode.Namespace.Workflow do
   def init("OBSERVE") do
     actions = [
       {:change_callback_module, ControlNode.Namespace.Initialize},
-      {:next_event, :internal, :observe_namespace_state}
+      {:next_event, :internal, :observe_release_state}
     ]
 
     {:initialize, actions}
@@ -40,7 +40,7 @@ defmodule ControlNode.Namespace.Workflow do
   def init("MANAGE") do
     actions = [
       {:change_callback_module, ControlNode.Namespace.Initialize},
-      {:next_event, :internal, :load_namespace_state}
+      {:next_event, :internal, :load_release_state}
     ]
 
     {:initialize, actions}
@@ -50,7 +50,11 @@ defmodule ControlNode.Namespace.Workflow do
   When there is no release running on any host for a given namespace, the workflow
   switches to managing the namespace and wait request for new deployment
   """
-  def next(:initialize, :not_running, _), do: enter_state(:manage)
+  def next(:initialize, :not_running, _) do
+    actions = [{:change_callback_module, Namespace.Manage}]
+
+    {:manage, actions}
+  end
 
   def next(:initialize, :partially_running, version) do
     actions = [
@@ -61,15 +65,22 @@ defmodule ControlNode.Namespace.Workflow do
     {:deploy, actions}
   end
 
-  def next(:initialize, :running, _version), do: enter_state(:manage)
+  def next(:initialize, :running, _version) do
+    actions = [
+      {:change_callback_module, Namespace.Manage},
+      {:next_event, :internal, :schedule_health_check}
+    ]
 
-  def next(:initialize, :connect_namespace_state, _) do
+    {:manage, actions}
+  end
+
+  def next(:initialize, :connect_release_state, _) do
     actions = [{:change_callback_module, Namespace.Connect}]
 
     {:connect, actions}
   end
 
-  def next(:initialize, :observe_namespace_state, _) do
+  def next(:initialize, :observe_release_state, _) do
     actions = [{:change_callback_module, Namespace.Observe}]
 
     {:observe, actions}
@@ -78,20 +89,13 @@ defmodule ControlNode.Namespace.Workflow do
   def next(:deploy, :executed, {"OBSERVE", _version}) do
     actions = [
       {:change_callback_module, Namespace.Initialize},
-      {:next_event, :internal, :observe_namespace_state}
+      {:next_event, :internal, :observe_release_state}
     ]
 
     {:initialize, actions}
   end
 
-  def next(:deploy, :executed, {"MANAGE", version}) do
-    actions = [
-      {:change_callback_module, Namespace.Initialize},
-      {:next_event, :internal, {:load_namespace_state, version}}
-    ]
-
-    {:initialize, actions}
-  end
+  def next(:deploy, :executed, {"MANAGE", version}), do: initialize_with_version(version)
 
   def next(state_name, :trigger_deployment, version) when state_name in [:observe, :manage] do
     actions = [
@@ -102,21 +106,14 @@ defmodule ControlNode.Namespace.Workflow do
     {:deploy, actions}
   end
 
-  def next(:manage, action, version) when action in [:nodedown, :new_host] do
+  def next(:manage, :nodedown, version), do: initialize_with_version(version)
+
+  defp initialize_with_version(version) do
     actions = [
       {:change_callback_module, Namespace.Initialize},
-      {:next_event, :internal, {:load_namespace_state, version}}
+      {:next_event, :internal, {:load_release_state, version}}
     ]
 
     {:initialize, actions}
-  end
-
-  defp enter_state(:manage) do
-    actions = [
-      {:change_callback_module, Namespace.Manage},
-      {:next_event, :internal, :schedule_health_check}
-    ]
-
-    {:manage, actions}
   end
 end
