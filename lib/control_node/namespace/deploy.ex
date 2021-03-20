@@ -5,7 +5,8 @@ defmodule ControlNode.Namespace.Deploy do
   # `Deploy` state of the namespace FSM ensure that a given version of the release
   # is running in the namespace
   # NOTE:
-  # - In case a release fails to starts it must be retried continuously with exponential backoff
+  # - In case a release fails to starts it must be retried continuously with
+  #   exponential backoff
 
   require Logger
   alias ControlNode.{Namespace, Release}
@@ -14,39 +15,24 @@ defmodule ControlNode.Namespace.Deploy do
   def callback_mode, do: :handle_event_function
 
   def handle_event(:internal, {:ensure_running, version}, _state, data) do
+    Logger.info("Deploying release version #{version}")
+
     %Workflow.Data{
       namespace_spec: %Namespace.Spec{registry_spec: registry_spec, control_mode: control_mode},
       release_spec: release_spec,
-      namespace_state: namespace_state
+      release_state: %Release.State{version: current_version} = release_state
     } = data
 
-    namespace_state =
-      Enum.map(namespace_state, fn
-        %Release.State{status: :running, version: ^version} = release_state ->
-          release_state
+    if current_version != version do
+      with {:error, {error, message}} <-
+             ensure_running(release_state, release_spec, registry_spec, version) do
+        # Either an error occurred when stopping the release or when deploying it
+        metadata = [error: error, message: message, release_state: inspect(release_state)]
+        Logger.error("Failed to deploy release version #{version}", metadata)
+      end
+    end
 
-        release_state ->
-          with {:error, {error, message}} <-
-                 ensure_running(release_state, release_spec, registry_spec, version) do
-            # Either an error occurred when stopping the release or when deploying it
-            Logger.error(
-              "Failed while deploying release #{release_spec.name} to #{release_state.host.host}",
-              error: error,
-              message: message,
-              release_state: inspect(release_state)
-            )
-          end
-
-          nil
-      end)
-      |> Enum.filter(fn e -> e end)
-
-    data = %Workflow.Data{
-      data
-      | namespace_state: namespace_state,
-        deploy_attempts: data.deploy_attempts + 1
-    }
-
+    data = %Workflow.Data{data | deploy_attempts: data.deploy_attempts + 1}
     {state, actions} = Namespace.Workflow.next(@state_name, :executed, {control_mode, version})
     {:next_state, state, data, actions}
   end
@@ -87,6 +73,11 @@ defmodule ControlNode.Namespace.Deploy do
   defp try_deploy(release_spec, host_spec, registry_spec, version) do
     try do
       :ok = Release.deploy(release_spec, host_spec, registry_spec, version)
+
+      Enum.any?(1..(10 * release_spec.start_timeout), fn _ ->
+        :timer.sleep(100)
+        Release.is_running?(release_spec, host_spec)
+      end)
     catch
       error, message -> {:error, {error, message}}
     end

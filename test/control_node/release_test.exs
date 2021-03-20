@@ -6,6 +6,8 @@ defmodule ControlNode.ReleaseTest do
   alias ControlNode.{Release, Host, Registry, Inet}
   alias ControlNode.Test.Support.ServiceApp
 
+  @moduletag capture_log: true
+
   setup do
     host_spec = ssh_fixture()
     release_spec = %Release.Spec{name: :service_app, base_path: "/app/service_app"}
@@ -29,33 +31,33 @@ defmodule ControlNode.ReleaseTest do
   end
 
   describe "init/1" do
-    test "default :control_mode is set to MANAGE" do
+    test "default :control_mode is set to MANAGE", %{host_spec: host_spec} do
       namespace_spec = %ControlNode.Namespace.Spec{tag: :testing}
-      {:ok, :initialize, _data, actions} = ServiceApp.init(namespace_spec)
+      {:ok, :initialize, _data, actions} = ServiceApp.init([namespace_spec, host_spec])
 
       assert [
                {:change_callback_module, ControlNode.Namespace.Initialize},
-               {:next_event, :internal, :load_namespace_state}
+               {:next_event, :internal, :load_release_state}
              ] == actions
     end
 
-    test "[control_mode: OBSERVE] next event is set to :observe_namespace_state" do
+    test "[control_mode: OBSERVE] next event is :observe_release_state", %{host_spec: host_spec} do
       namespace_spec = %ControlNode.Namespace.Spec{tag: :testing, control_mode: "OBSERVE"}
-      {:ok, :initialize, _data, actions} = ServiceApp.init(namespace_spec)
+      {:ok, :initialize, _data, actions} = ServiceApp.init([namespace_spec, host_spec])
 
       assert [
                {:change_callback_module, ControlNode.Namespace.Initialize},
-               {:next_event, :internal, :observe_namespace_state}
+               {:next_event, :internal, :observe_release_state}
              ] == actions
     end
 
-    test "[control_mode: CONNECT] next event is set to :connect_namespace_state" do
+    test "[control_mode: CONNECT] next event is :connect_namespace_state", %{host_spec: host_spec} do
       namespace_spec = %ControlNode.Namespace.Spec{tag: :testing, control_mode: "CONNECT"}
-      {:ok, :initialize, _data, actions} = ServiceApp.init(namespace_spec)
+      {:ok, :initialize, _data, actions} = ServiceApp.init([namespace_spec, host_spec])
 
       assert [
                {:change_callback_module, ControlNode.Namespace.Initialize},
-               {:next_event, :internal, :connect_namespace_state}
+               {:next_event, :internal, :connect_release_state}
              ] == actions
     end
   end
@@ -133,7 +135,7 @@ defmodule ControlNode.ReleaseTest do
       host_spec: host_spec,
       cookie: cookie
     } do
-      mock_rpc_call = {:rpc, [:unstick], [call: &rpc_call/4]}
+      mock_rpc_call = {:erpc, [:unstick], [call: &rpc_call/4]}
 
       with_mocks([mock_rpc_call]) do
         assert %Release.State{host: host_spec, version: "0.1.0", status: :running} =
@@ -157,7 +159,6 @@ defmodule ControlNode.ReleaseTest do
       end)
     end
 
-    @tag capture_log: true
     test "terminate_state/2 demonitor node and close SSH connection", %{
       release_spec: release_spec,
       host_spec: host_spec,
@@ -201,4 +202,6 @@ defmodule ControlNode.ReleaseTest do
   defp rpc_call(_node, :release_handler, :which_releases, _args) do
     [{'service_app', '0.1.0', [], :permanent}]
   end
+
+  defp rpc_call(_node, :erlang, :apply, _args), do: 'somevalue'
 end

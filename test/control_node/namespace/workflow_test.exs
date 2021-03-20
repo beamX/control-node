@@ -39,13 +39,15 @@ defmodule ControlNode.Namespace.WorkflowTest do
 
     test "restarts node when node goes down", %{host_spec: host_spec, release_spec: release_spec} do
       namespace_spec = build(:namespace_spec, hosts: [host_spec])
-      {:ok, _pid} = ServiceApp.start_link(namespace_spec)
+      {:ok, _pid} = ServiceApp.start_link(namespace_spec, host_spec)
 
       assert_until(fn -> {:manage, _} = :sys.get_state(:service_app_testing) end)
 
       exec_stop(release_spec, host_spec)
       ensure_stopped(release_spec, host_spec)
       ensure_started(release_spec, host_spec)
+
+      assert_until(fn -> {:manage, _} = :sys.get_state(:service_app_testing) end)
     end
   end
 
@@ -64,7 +66,7 @@ defmodule ControlNode.Namespace.WorkflowTest do
 
     test "transitions to [state: :manage] when release is not running" do
       namespace_spec = build(:namespace_spec, hosts: [build(:host_spec)])
-      {:ok, _pid} = ServiceApp.start_link(namespace_spec)
+      {:ok, _pid} = ServiceApp.start_link(namespace_spec, build(:host_spec))
 
       assert_until(fn -> {:manage, _} = :sys.get_state(:service_app_testing) end)
     end
@@ -73,7 +75,7 @@ defmodule ControlNode.Namespace.WorkflowTest do
       System.put_env("CONTROL_MODE", "OBSERVE")
 
       namespace_spec = build(:namespace_spec, hosts: [build(:host_spec)])
-      {:ok, _pid} = ServiceApp.start_link(namespace_spec)
+      {:ok, _pid} = ServiceApp.start_link(namespace_spec, build(:host_spec))
 
       assert_until(fn -> {:observe, _} = :sys.get_state(:service_app_testing) end)
 
@@ -81,10 +83,12 @@ defmodule ControlNode.Namespace.WorkflowTest do
     end
 
     test "deploys release version; stopping after 5 failed attempts" do
-      hosts = [build(:host_spec), build(:host_spec, host: "localhost2")]
-      namespace_spec = build(:namespace_spec, hosts: hosts)
+      host_spec = build(:host_spec, host: "localhost2")
+      namespace_spec = build(:namespace_spec, tag: :testing, hosts: [host_spec])
 
-      {:ok, _pid} = ServiceApp.start_link(namespace_spec)
+      {:ok, _pid} = ServiceApp.start_link(namespace_spec, host_spec)
+
+      ServiceApp.deploy(:testing, "0.2.0")
 
       assert_until(fn ->
         {:failed_deployment, %{deploy_attempts: 5}} = :sys.get_state(:service_app_testing)
@@ -103,10 +107,12 @@ defmodule ControlNode.Namespace.WorkflowTest do
 
       actions = [
         {:change_callback_module, ControlNode.Namespace.Initialize},
-        {:next_event, :internal, :observe_namespace_state}
+        {:next_event, :internal, :observe_release_state}
       ]
 
-      assert {:ok, :initialize, _, next_actions} = ServiceApp.init(namespace_spec)
+      assert {:ok, :initialize, _, next_actions} =
+               ServiceApp.init([namespace_spec, build(:host_spec)])
+
       assert next_actions == actions
     end
   end

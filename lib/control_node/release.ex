@@ -27,14 +27,20 @@ defmodule ControlNode.Release do
 
     * `:name` : Name of the release
     * `:base_path` : Path on remote host where the release should be uploaded
+    * `:start_timeout` : Time (in seconds) to wait for a release to start, `default: 5`
+    * `:health_check_spec` : Health check config
     """
 
     @type t :: %__MODULE__{
             name: atom,
             base_path: String.t(),
+            start_timeout: integer,
             health_check_spec: HealthCheckSpec.t()
           }
-    defstruct name: nil, base_path: nil, health_check_spec: %HealthCheckSpec{}
+    defstruct name: nil,
+              base_path: nil,
+              start_timeout: 5,
+              health_check_spec: %HealthCheckSpec{}
   end
 
   defmodule State do
@@ -51,10 +57,21 @@ defmodule ControlNode.Release do
             version: String.t(),
             status: atom,
             port: integer,
+            pid: list,
             tunnel_port: integer,
             release_path: list
           }
-    defstruct host: nil, version: nil, status: nil, port: nil, tunnel_port: nil, release_path: nil
+    defstruct host: nil,
+              version: nil,
+              status: :not_running,
+              port: nil,
+              pid: nil,
+              tunnel_port: nil,
+              release_path: nil
+
+    def new(host_spec), do: %__MODULE__{host: host_spec, status: :not_running}
+
+    def nodedown(%__MODULE__{} = state), do: %__MODULE__{state | status: :not_running}
   end
 
   defmacro __using__(opts) do
@@ -63,12 +80,9 @@ defmodule ControlNode.Release do
       @release_spec opts[:spec]
 
       @behaviour :gen_statem
+      require Logger
       alias ControlNode.Release
       alias ControlNode.Namespace
-
-      def resolve_version(namespace_tag, version) do
-        :gen_statem.call(name(namespace_tag), {:resolve_version, version})
-      end
 
       @doc """
       Deploy a new version of the service to the given namespace.
@@ -77,46 +91,34 @@ defmodule ControlNode.Release do
         :gen_statem.call(name(namespace_tag), {:deploy, version})
       end
 
-      @doc """
-      Dynamically add a new host to a given namespace.
-      NOTE: The Host should be added to NamespaceSpec to persist it across restarts
-      """
-      @spec add_host(atom, Host.SSH.t()) :: :ok | {:error, :host_already_exists}
-      def add_host(namespace_tag, %Host.SSH{} = host) do
-        :gen_statem.call(name(namespace_tag), {:add_host, host})
-      end
-
-      @doc """
-      Dynamically remove a host from a given namespace.
-      NOTE: The Host should be removed from NamespaceSpec to persist changes across restarts
-      """
-      @spec remove_host(atom, binary) :: :ok | {:error, :host_already_exists}
-      def remove_host(namespace_tag, host) do
-        :gen_statem.call(name(namespace_tag), {:remove_host, host})
-      end
-
       defp name(tag), do: :"#{@release_name}_#{tag}"
 
-      def start_link(%Namespace.Spec{} = namespace_spec) do
+      def start_link(%Namespace.Spec{} = namespace_spec, host_spec) do
         name = {:local, name(namespace_spec.tag)}
-        :gen_statem.start_link(name, __MODULE__, namespace_spec, [])
+        :gen_statem.start_link(name, __MODULE__, [namespace_spec, host_spec], [])
       end
 
       @impl :gen_statem
       def callback_mode, do: :handle_event_function
 
       @impl :gen_statem
-      def init(%Namespace.Spec{control_mode: control_mode} = namespace_spec) do
+      def init([%Namespace.Spec{control_mode: control_mode} = namespace_spec, host_spec]) do
         control_mode = System.get_env("CONTROL_MODE", nil) || control_mode
         namespace_spec = %Namespace.Spec{namespace_spec | control_mode: control_mode}
 
-        %Release.Spec{} = @release_spec
+        %Release.Spec{name: release_name} = @release_spec
 
         data = %Namespace.Workflow.Data{
-          release_spec: @release_spec,
           namespace_spec: namespace_spec,
-          namespace_state: []
+          release_spec: @release_spec,
+          release_state: State.new(host_spec)
         }
+
+        Logger.metadata(
+          release_name: release_name,
+          namespace: namespace_spec.tag,
+          host: host_spec.host
+        )
 
         {state, actions} = Namespace.Workflow.init(control_mode)
         {:ok, state, data, actions}
@@ -135,7 +137,7 @@ defmodule ControlNode.Release do
            Host.info(host_spec) do
       case Map.get(services, release_spec.name) do
         nil ->
-          %State{host: host_spec, status: :not_running}
+          State.new(host_spec)
 
         service_port ->
           with %Host.SSH{} = host_spec <- Host.connect(host_spec),
@@ -157,9 +159,11 @@ defmodule ControlNode.Release do
               release_path: release_path(release_spec, host_spec)
             }
 
+            release_pid = rpc(release_state, release_spec, &:os.getpid/0, [])
+
             case get_version(release_spec, host_spec) do
               {:ok, version} ->
-                %State{release_state | version: version}
+                %State{release_state | version: version, pid: release_pid}
 
               _ ->
                 Logger.warn(
@@ -175,7 +179,7 @@ defmodule ControlNode.Release do
 
   defp release_path(release_spec, host_spec) do
     with {:ok, node} <- to_node_name(release_spec, host_spec) do
-      :rpc.call(node, :code, :root_dir, [])
+      :erpc.call(node, :code, :root_dir, [])
       |> :erlang.list_to_binary()
     end
   end
@@ -216,7 +220,7 @@ defmodule ControlNode.Release do
       # demonitor node so that {:nodedown, node} message is not generated when
       # the node is stopped
       Node.monitor(node, false)
-      :rpc.call(node, :init, :stop, [0])
+      :erpc.call(node, :init, :stop, [0])
     end
 
     true = check_until_stopped(release_spec, host_spec)
@@ -242,6 +246,13 @@ defmodule ControlNode.Release do
     end)
   end
 
+  def is_running?(release_spec, host_spec) do
+    case node_info(release_spec, host_spec) do
+      {:ok, _} -> true
+      _ -> false
+    end
+  end
+
   defp node_info(release_spec, host_spec) do
     with {:ok, %Host.Info{services: services}} <- Host.info(host_spec) do
       case Map.get(services, release_spec.name) do
@@ -264,7 +275,7 @@ defmodule ControlNode.Release do
   defp get_version(release_spec, host_spec) do
     {:ok, node} = to_node_name(release_spec, host_spec)
 
-    case :rpc.call(node, :application, :get_key, [release_spec.name, :vsn]) do
+    case :erpc.call(node, :application, :get_key, [release_spec.name, :vsn]) do
       {:ok, vsn} ->
         {:ok, :erlang.list_to_binary(vsn)}
 
@@ -279,7 +290,7 @@ defmodule ControlNode.Release do
   end
 
   defp get_release_version(node, release_name) do
-    case :rpc.call(node, :release_handler, :which_releases, []) do
+    case :erpc.call(node, :release_handler, :which_releases, []) do
       [_] = releases ->
         Enum.find(releases, {:error, :release_not_found}, fn {name, _vsn, _, _} ->
           name == release_name
@@ -319,6 +330,17 @@ defmodule ControlNode.Release do
 
   defp connect_and_monitor(release_spec, host_spec, cookie) do
     connect(release_spec, host_spec, cookie, true)
+  end
+
+  def rpc(release_state, release_spec, eval_fun, args) do
+    case to_node_name(release_spec, release_state.host) do
+      {:ok, node} ->
+        :erpc.call(node, :erlang, :apply, [eval_fun, args])
+
+      _ ->
+        Logger.error("Error while getting node name")
+        :error
+    end
   end
 
   @doc """

@@ -3,10 +3,6 @@ defmodule ControlNode.Namespace.Initialize do
   @state_name :initialize
 
   # `Initialize` is the first state of the namespace FSM
-  # The name is can be in one of the following states,
-  # 1. Release is running on some or all hosts with same version
-  # 2. Release is not running any host
-  # 3. TODO Release is running on some or all hosts with different version
 
   require Logger
   alias ControlNode.{Release, Namespace}
@@ -15,53 +11,46 @@ defmodule ControlNode.Namespace.Initialize do
   def callback_mode, do: :handle_event_function
 
   def handle_event(:internal, current_state, :initialize, data)
-      when current_state in [:observe_namespace_state, :connect_namespace_state] do
-    %Workflow.Data{namespace_spec: namespace_spec, release_spec: release_spec} = data
+      when current_state in [:observe_release_state, :connect_release_state] do
+    %Workflow.Data{
+      namespace_spec: namespace_spec,
+      release_spec: release_spec,
+      release_state: release_state
+    } = data
 
-    namespace_state =
-      Enum.map(namespace_spec.hosts, fn host_spec ->
-        Release.initialize_state(release_spec, host_spec, namespace_spec.release_cookie)
-      end)
+    release_state =
+      Release.initialize_state(
+        release_spec,
+        release_state.host,
+        namespace_spec.release_cookie
+      )
 
-    data = %Workflow.Data{data | namespace_state: namespace_state}
+    data = %Workflow.Data{data | release_state: release_state}
     {next_state, actions} = Namespace.Workflow.next(@state_name, current_state, nil)
     {:next_state, next_state, data, actions}
   end
 
-  def handle_event(:internal, :load_namespace_state, :initialize, data) do
+  def handle_event(:internal, :load_release_state, :initialize, data) do
+    Logger.info("Loading release state")
+
     %Workflow.Data{namespace_spec: namespace_spec, release_spec: release_spec} = data
 
-    namespace_state =
-      Enum.map(namespace_spec.hosts, fn host_spec ->
-        Release.initialize_state(release_spec, host_spec, namespace_spec.release_cookie)
-      end)
+    release_state =
+      Release.initialize_state(
+        release_spec,
+        data.release_state.host,
+        namespace_spec.release_cookie
+      )
 
-    data = %Workflow.Data{data | namespace_state: namespace_state}
+    data = %Workflow.Data{data | release_state: release_state}
 
-    if is_running?(namespace_state) do
-      # TODO: switch to deploy only when a host doesn't have a release running
-      case has_unique_version?(namespace_state) do
-        {true, version} ->
-          Logger.info(
-            "Release #{release_spec.name} with version #{version} running in namespace #{
-              namespace_spec.tag
-            }"
-          )
-
-          {state, actions} = Namespace.Workflow.next(@state_name, :partially_running, version)
-          {:next_state, state, data, actions}
-
-        false ->
-          Logger.warn(
-            "Release #{release_spec.name} running different versions in namespace #{
-              namespace_spec.tag
-            }"
-          )
-
-          {:next_state, :version_conflict, data}
-      end
+    if is_running?(release_state) do
+      %Release.State{version: version} = release_state
+      Logger.info("Release version #{version} running")
+      {state, actions} = Namespace.Workflow.next(@state_name, :running, version)
+      {:next_state, state, data, actions}
     else
-      Logger.info("Release #{release_spec.name} not running in namespace #{namespace_spec.tag}")
+      Logger.info("Release not running")
       {state, actions} = Namespace.Workflow.next(@state_name, :not_running, :ignore)
       {:next_state, state, data, actions}
     end
@@ -69,60 +58,51 @@ defmodule ControlNode.Namespace.Initialize do
 
   def handle_event(
         :internal,
-        {:load_namespace_state, _version},
+        {:load_release_state, version},
         :initialize,
         %Workflow.Data{
           deploy_attempts: deploy_attempts
         } = data
       )
       when deploy_attempts >= 5 do
+    Logger.error("Depoyment attempts exhausted, failed to deploy release version #{version}")
     {:next_state, :failed_deployment, data}
   end
 
-  def handle_event(:internal, {:load_namespace_state, version}, :initialize, data) do
+  def handle_event(:internal, {:load_release_state, version}, :initialize, data) do
+    Logger.info("Loading release state, expected version #{version}")
+
     %Workflow.Data{
-      namespace_spec: %Namespace.Spec{release_cookie: cookie} = namespace_spec,
-      namespace_state: namespace_state,
-      release_spec: release_spec
+      namespace_spec: %Namespace.Spec{release_cookie: cookie},
+      release_spec: release_spec,
+      release_state: %Release.State{host: host_spec} = curr_release_state
     } = data
 
-    namespace_state =
-      Enum.map(namespace_spec.hosts, fn host_spec ->
-        maybe_initalize_state(namespace_state, release_spec, host_spec, cookie)
-      end)
+    # Flush the current release state
+    Release.terminate_state(release_spec, curr_release_state)
+
+    # Build a new release state view
+    %Release.State{version: current_version} =
+      release_state = Release.initialize_state(release_spec, host_spec, cookie)
 
     {namespace_status, new_deploy_attempts} =
-      if is_current_version?(namespace_state, version) do
-        Logger.info(
-          "Release #{release_spec.name} with version #{version} running in namespace #{
-            namespace_spec.tag
-          }"
-        )
+      if is_current_version?(release_state, version) do
+        Logger.info("Release state loaded, current version #{version}")
 
         {:running, 0}
       else
-        Logger.warn(
-          "Release #{release_spec.name} with version #{version} partially running in namespace #{
-            namespace_spec.tag
-          }"
-        )
+        Logger.warn("Release state loaded, expected version #{version} found #{current_version}")
 
         {:partially_running, data.deploy_attempts}
       end
 
     data = %Workflow.Data{
       data
-      | namespace_state: namespace_state,
+      | release_state: release_state,
         deploy_attempts: new_deploy_attempts
     }
 
     {state, actions} = Namespace.Workflow.next(@state_name, namespace_status, version)
-    {:next_state, state, data, actions}
-  end
-
-  def handle_event({:call, from}, {:resolve_version, version}, :version_confict, data) do
-    {state, actions} = Namespace.Workflow.next(@state_name, :partially_running, version)
-    actions = [{:reply, from, :ok} | actions]
     {:next_state, state, data, actions}
   end
 
@@ -131,35 +111,11 @@ defmodule ControlNode.Namespace.Initialize do
 
   def handle_event(_any, _event, _state, _data), do: {:keep_state_and_data, []}
 
-  defp is_current_version?(namespace_state, new_version) do
-    Enum.all?(namespace_state, fn %{version: version} -> version == new_version end)
+  defp is_current_version?(%Release.State{version: version}, new_version) do
+    version == new_version
   end
 
-  defp has_unique_version?(namespace_state) do
-    namespace_state
-    |> Enum.filter(fn %{status: status} -> status == :running end)
-    |> Enum.uniq_by(fn %{version: version} -> version end)
-    |> case do
-      [%{version: version}] -> {true, version}
-      [_ | _] -> false
-    end
-  end
-
-  defp is_running?(namespace_state) do
-    Enum.any?(namespace_state, fn %{status: status} -> status == :running end)
-  end
-
-  defp maybe_initalize_state(namespace_state, release_spec, host_spec, cookie) do
-    Enum.find(namespace_state, fn %Release.State{host: host} ->
-      host.host == host_spec.host
-    end)
-    |> case do
-      nil ->
-        Release.initialize_state(release_spec, host_spec, cookie)
-
-      # TODO: maybe also validate the status: running
-      %Release.State{} = release_state ->
-        release_state
-    end
+  defp is_running?(%Release.State{status: status}) do
+    status == :running
   end
 end

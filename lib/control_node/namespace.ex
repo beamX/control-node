@@ -100,17 +100,4 @@ defmodule ControlNode.Namespace do
 
     {Enum.filter(namespace_state, fn e -> e end), version}
   end
-
-  def rpc(namespace_state, release_spec, eval_fun, args) do
-    nodes =
-      Enum.map(namespace_state, fn %Release.State{} = release_state ->
-        case Release.to_node_name(release_spec, release_state.host) do
-          {:ok, node} -> node
-          _ -> "no_node_name@no_host"
-        end
-      end)
-
-    :erpc.multicall(nodes, :erlang, :apply, [eval_fun, args])
-    |> Enum.zip(nodes)
-  end
 end
