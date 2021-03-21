@@ -39,15 +39,15 @@ defmodule ControlNode.Namespace.WorkflowTest do
 
     test "restarts node when node goes down", %{host_spec: host_spec, release_spec: release_spec} do
       namespace_spec = build(:namespace_spec, hosts: [host_spec])
-      {:ok, _pid} = ServiceApp.start_link(namespace_spec, host_spec)
+      {:ok, pid} = ServiceApp.start_link(namespace_spec, host_spec)
 
-      assert_until(fn -> {:manage, _} = :sys.get_state(:service_app_testing) end)
+      assert_until(fn -> {:manage, _} = :sys.get_state(pid) end)
 
       exec_stop(release_spec, host_spec)
       ensure_stopped(release_spec, host_spec)
       ensure_started(release_spec, host_spec)
 
-      assert_until(fn -> {:manage, _} = :sys.get_state(:service_app_testing) end)
+      assert_until(fn -> {:manage, _} = :sys.get_state(pid) end)
     end
   end
 
@@ -66,18 +66,18 @@ defmodule ControlNode.Namespace.WorkflowTest do
 
     test "transitions to [state: :manage] when release is not running" do
       namespace_spec = build(:namespace_spec, hosts: [build(:host_spec)])
-      {:ok, _pid} = ServiceApp.start_link(namespace_spec, build(:host_spec))
+      {:ok, pid} = ServiceApp.start_link(namespace_spec, build(:host_spec))
 
-      assert_until(fn -> {:manage, _} = :sys.get_state(:service_app_testing) end)
+      assert_until(fn -> {:manage, _} = :sys.get_state(pid) end)
     end
 
     test "transitions to [state: :observe] when CONTROL_MODE is OBSERVE" do
       System.put_env("CONTROL_MODE", "OBSERVE")
 
       namespace_spec = build(:namespace_spec, hosts: [build(:host_spec)])
-      {:ok, _pid} = ServiceApp.start_link(namespace_spec, build(:host_spec))
+      {:ok, pid} = ServiceApp.start_link(namespace_spec, build(:host_spec))
 
-      assert_until(fn -> {:observe, _} = :sys.get_state(:service_app_testing) end)
+      assert_until(fn -> {:observe, _} = :sys.get_state(pid) end)
 
       System.put_env("CONTROL_MODE", "MANAGE")
     end
@@ -86,12 +86,21 @@ defmodule ControlNode.Namespace.WorkflowTest do
       host_spec = build(:host_spec, host: "localhost2")
       namespace_spec = build(:namespace_spec, tag: :testing, hosts: [host_spec])
 
-      {:ok, _pid} = ServiceApp.start_link(namespace_spec, host_spec)
+      {:ok, pid} = ServiceApp.start_link(namespace_spec, host_spec)
 
-      ServiceApp.deploy(:testing, "0.2.0")
+      :ok = ServiceApp.deploy(namespace_spec, host_spec, "0.2.0")
 
       assert_until(fn ->
-        {:failed_deployment, %{deploy_attempts: 5}} = :sys.get_state(:service_app_testing)
+        {:manage, %{deploy_attempts: 0}} = :sys.get_state(pid)
+      end)
+
+      # Check the a new deploy request can be submitted i.e. after a failed
+      # deployment the FSM is in a state to deploy when a user requests a new
+      # deployment
+      :ok = ServiceApp.deploy(namespace_spec, host_spec, "0.3.0")
+
+      assert_until(fn ->
+        {:manage, %{deploy_attempts: 0}} = :sys.get_state(pid)
       end)
     end
   end

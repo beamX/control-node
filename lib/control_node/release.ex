@@ -1,6 +1,6 @@
 defmodule ControlNode.Release do
   require Logger
-  alias ControlNode.{Host, Registry, Epmd, Inet}
+  alias ControlNode.{Host, Epmd, Inet}
 
   defmodule HealthCheckSpec do
     @typedoc """
@@ -87,14 +87,17 @@ defmodule ControlNode.Release do
       @doc """
       Deploy a new version of the service to the given namespace.
       """
-      def deploy(namespace_tag, version) do
-        :gen_statem.call(name(namespace_tag), {:deploy, version})
+      def deploy(namespace_spec, host_spec, version) do
+        name(namespace_spec.tag, @release_name, host_spec.host)
+        |> :gen_statem.call({:deploy, version})
       end
 
-      defp name(tag), do: :"#{@release_name}_#{tag}"
+      defp name(namespace_tag, release_name, hostname) do
+        {:via, Registry, {ControlNode.ReleaseRegistry, {namespace_tag, release_name, hostname}}}
+      end
 
       def start_link(%Namespace.Spec{} = namespace_spec, host_spec) do
-        name = {:local, name(namespace_spec.tag)}
+        name = name(namespace_spec.tag, @release_name, host_spec.host)
         :gen_statem.start_link(name, __MODULE__, [namespace_spec, host_spec], [])
       end
 
@@ -307,14 +310,14 @@ defmodule ControlNode.Release do
   NOTE: Prior to calling this function it should be ensured that no release with
   name `release_spec.name` is running on host specified by `host_spec`
   """
-  @spec deploy(Spec.t(), Host.SSH.t(), Registry.Local.t(), binary) ::
+  @spec deploy(Spec.t(), Host.SSH.t(), ControlNode.Registry.Local.t(), binary) ::
           :ok | {:error, Host.SSH.ExecStatus.t()}
   def deploy(%Spec{} = release_spec, host_spec, registry_spec, version) do
     # WARN: may not work if host OS is different from control-node OS
     host_release_dir = Path.join(release_spec.base_path, version)
     host_release_path = Path.join(host_release_dir, "#{release_spec.name}-#{version}.tar.gz")
 
-    with {:ok, tar_file} <- Registry.fetch(registry_spec, release_spec.name, version),
+    with {:ok, tar_file} <- ControlNode.Registry.fetch(registry_spec, release_spec.name, version),
          :ok <- Host.upload_file(host_spec, host_release_path, tar_file),
          :ok <- Host.extract_tar(host_spec, host_release_path, host_release_dir) do
       init_file = Path.join(host_release_dir, "bin/#{release_spec.name}")

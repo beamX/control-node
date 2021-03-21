@@ -134,6 +134,39 @@ defmodule ControlNode.Namespace.InitializeTest do
       assert attempts == 0
     end
 
+    test "[event: {:load_release_state, version}] transitions to [state: :deploy]\
+          deploy_attmepts are not reset when release is not running" do
+      data = %{build_workflow_data("localhost3") | deploy_attempts: 3}
+
+      assert {:next_state, :deploy, data, next_actions} =
+               Initialize.handle_event(
+                 :internal,
+                 {:load_release_state, "0.2.0"},
+                 :initialize,
+                 data
+               )
+
+      assert next_actions == expected_actions("0.2.0")
+      assert data.deploy_attempts == 3
+    end
+
+    test "[event: {:load_release_state, version}] transitions to [state: :manage]\
+          resets deploy_attempts when deploy attempts are exhausted" do
+      data = %{build_workflow_data("localhost2") | deploy_attempts: 5}
+      actions = [{:change_callback_module, Namespace.Manage}]
+
+      assert {:next_state, :manage, %{deploy_attempts: attempts}, next_actions} =
+               Initialize.handle_event(
+                 :internal,
+                 {:load_release_state, "0.1.0"},
+                 :initialize,
+                 data
+               )
+
+      assert next_actions == actions
+      assert attempts == 0
+    end
+
     test "[event: :observe_namespace_state] transitions to [state: :observe]" do
       data = build_workflow_data("localhost")
 
