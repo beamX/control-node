@@ -28,7 +28,11 @@ defmodule ControlNode.Namespace.Deploy do
              ensure_running(release_state, release_spec, registry_spec, version) do
         # Either an error occurred when stopping the release or when deploying it
         metadata = [error: error, message: message, release_state: inspect(release_state)]
-        Logger.error("Failed to deploy release version #{version}", metadata)
+
+        Logger.error(
+          "Failed to deploy release version #{version}, attempts=#{data.deploy_attempts}",
+          metadata
+        )
       end
     end
 

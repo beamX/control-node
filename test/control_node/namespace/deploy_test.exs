@@ -41,6 +41,7 @@ defmodule ControlNode.Namespace.DeployTest do
              ] == next_actions
 
       refute [] == data.release_state
+      assert data.deploy_attempts == 1
     end
 
     test "transitions to [state: :initialize] after starting new deployment" do
@@ -50,6 +51,7 @@ defmodule ControlNode.Namespace.DeployTest do
                Namespace.Deploy.handle_event(:internal, {:ensure_running, "0.4.0"}, :ignore, data)
 
       assert next_actions == expected_actions("0.4.0")
+      assert data.deploy_attempts == 1
     end
 
     test "transitions to [state: :initialize] after failing to terminate deployment" do

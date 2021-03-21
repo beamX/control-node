@@ -60,13 +60,14 @@ defmodule ControlNode.Namespace.Initialize do
         :internal,
         {:load_release_state, version},
         :initialize,
-        %Workflow.Data{
-          deploy_attempts: deploy_attempts
-        } = data
+        %Workflow.Data{deploy_attempts: deploy_attempts} = data
       )
       when deploy_attempts >= 5 do
     Logger.error("Depoyment attempts exhausted, failed to deploy release version #{version}")
-    {:next_state, :failed_deployment, data}
+    {state, actions} = Namespace.Workflow.next(@state_name, :not_running, :ignore)
+    data = %Workflow.Data{data | deploy_attempts: 0}
+
+    {:next_state, state, data, actions}
   end
 
   def handle_event(:internal, {:load_release_state, version}, :initialize, data) do
