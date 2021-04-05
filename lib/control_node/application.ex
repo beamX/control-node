@@ -14,7 +14,8 @@ defmodule ControlNode.Application do
     children = [
       # Starts a worker by calling: ControlNode.Worker.start_link(arg)
       # {ControlNode.Worker, arg}
-      {Registry, keys: :unique, name: ControlNode.ReleaseRegistry}
+      {Registry, keys: :unique, name: ControlNode.ReleaseRegistry},
+      {DynamicSupervisor, strategy: :one_for_one, name: ControlNode.ReleaseSupervisor}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

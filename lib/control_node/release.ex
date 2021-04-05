@@ -87,10 +87,20 @@ defmodule ControlNode.Release do
       @doc """
       Deploy a new version of the service to the given namespace.
       """
-      def deploy(namespace_spec, host_spec, version) do
+      def deploy(%Namespace.Spec{} = namespace_spec, host_spec, version) do
         name(namespace_spec.tag, @release_name, host_spec.host)
         |> :gen_statem.call({:deploy, version})
       end
+
+      @doc """
+      Stop the release version
+      """
+      def stop_release(%Namespace.Spec{} = namespace_spec, host_spec) do
+        name(namespace_spec.tag, @release_name, host_spec.host)
+        |> :gen_statem.call(:stop)
+      end
+
+      def release_name, do: @release_name
 
       defp name(namespace_tag, release_name, hostname) do
         {:via, Registry, {ControlNode.ReleaseRegistry, {namespace_tag, release_name, hostname}}}

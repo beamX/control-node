@@ -1,7 +1,10 @@
 defmodule ControlNode.Namespace do
   @moduledoc false
+  @supervisor ControlNode.ReleaseSupervisor
 
-  alias ControlNode.{Release, Host, Registry}
+  use GenServer
+  require Logger
+  alias ControlNode.{Host, Registry}
 
   defmodule Spec do
     @typedoc """
@@ -38,66 +41,68 @@ defmodule ControlNode.Namespace do
               control_mode: "MANAGE"
   end
 
-  def add_host(%Spec{hosts: hosts} = namespace_spec, %Host.SSH{host: new_host} = host_spec) do
-    current_hosts = Enum.map(hosts, fn %Host.SSH{host: host} -> host end)
+  def deploy(namespace_pid, version) do
+    GenServer.cast(namespace_pid, {:deploy, version})
+  end
 
-    if new_host in current_hosts do
-      {:error, :host_already_exists}
-    else
-      {:ok, %Spec{namespace_spec | hosts: [host_spec | hosts]}}
+  def start_link(namespace_spec, release_mod) do
+    GenServer.start_link(__MODULE__, [namespace_spec, release_mod])
+  end
+
+  @impl true
+  def init([namespace_spec, release_mod]) do
+    Logger.metadata(namespace: namespace_spec.tag, release: release_mod.release_name())
+    state = %{spec: namespace_spec, release_mod: release_mod}
+    {:ok, state, {:continue, :start_release_fsm}}
+  end
+
+  @impl true
+  def handle_continue(:start_release_fsm, state) do
+    Logger.info("Initializing namespace manager")
+    %{spec: namespace_spec, release_mod: release_mod} = state
+    ensure_started_releases(namespace_spec, release_mod)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast({:deploy, version}, %{spec: namespace_spec, release_mod: release_mod} = state) do
+    Enum.map(namespace_spec.hosts, fn host_spec ->
+      release_mod.deploy(namespace_spec, host_spec, version)
+    end)
+
+    {:noreply, state}
+  end
+
+  defp ensure_started_releases(namespace_spec, release_mod) do
+    Enum.map(namespace_spec.hosts, fn host_spec ->
+      start_release(release_mod, namespace_spec, host_spec)
+    end)
+  end
+
+  defp start_release(release_mod, namespace_spec, host_spec) do
+    spec = child_spec(release_mod, namespace_spec, host_spec)
+
+    case DynamicSupervisor.start_child(@supervisor, spec) do
+      {:ok, _pid} ->
+        :ok
+
+      {:ok, _pid, _info} ->
+        :ok
+
+      {:error, {:already_started, _pid}} ->
+        Logger.info("Release already running")
+        {:error, :already_running}
+
+      error ->
+        Logger.error(
+          "Failed to release with args: #{inspect(host_spec)}, error: #{inspect(error)}"
+        )
+
+        {:error, error}
     end
   end
 
-  def remove_host(
-        %Spec{hosts: hosts} = namespace_spec,
-        namespace_state,
-        %Release.Spec{} = release_spec,
-        host
-      ) do
-    Enum.find(namespace_state, fn %Release.State{host: host_spec} -> host_spec.host == host end)
-    |> case do
-      nil ->
-        {:ok, namespace_spec, namespace_state}
-
-      %Release.State{} = release_state ->
-        :ok = Release.stop(release_spec, release_state)
-        Release.terminate_state(release_spec, release_state)
-
-        new_namespace_state =
-          Enum.filter(namespace_state, fn %Release.State{host: host_spec} ->
-            host_spec.host != host
-          end)
-
-        new_hosts = Enum.filter(hosts, fn %Host.SSH{} = host_spec -> host_spec.host != host end)
-
-        new_namespace_spec = %Spec{namespace_spec | hosts: new_hosts}
-
-        {:ok, new_namespace_spec, new_namespace_state}
-    end
-  end
-
-  def get_current_version(namespace_state) do
-    Enum.map(namespace_state, fn %Release.State{version: version} -> version end)
-    |> Enum.uniq()
-    |> case do
-      [version] -> {:ok, version}
-      versions -> {:error, {:multiple_version_running, versions}}
-    end
-  end
-
-  # Disconnect from the host where the node went down and remove the node from
-  # namespace_state
-  def drop_release_state(namespace_state, release_spec, hostname) do
-    {namespace_state, version} =
-      Enum.map_reduce(namespace_state, nil, fn release_state, version ->
-        if release_state.host.hostname == hostname do
-          Release.terminate_state(release_spec, release_state)
-          {nil, release_state.version}
-        else
-          {release_state, version}
-        end
-      end)
-
-    {Enum.filter(namespace_state, fn e -> e end), version}
+  defp child_spec(release_mod, namespace_spec, host_spec) do
+    %{id: release_mod, start: {release_mod, :start_link, [namespace_spec, host_spec]}}
   end
 end

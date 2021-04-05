@@ -106,6 +106,12 @@ defmodule ControlNode.Namespace.Workflow do
     {:deploy, actions}
   end
 
+  # When the release has been stopped the FSM state remains the same as it
+  # awaits for a new deploy request
+  def next(:manage, :release_stopped, _) do
+    {:manage, []}
+  end
+
   def next(:manage, :nodedown, version), do: initialize_with_version(version)
 
   defp initialize_with_version(version) do

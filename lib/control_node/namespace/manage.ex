@@ -8,6 +8,19 @@ defmodule ControlNode.Namespace.Manage do
 
   def callback_mode, do: :handle_event_function
 
+  def handle_event({:call, from}, :stop, _state, data) do
+    %Workflow.Data{
+      release_spec: %Release.Spec{} = release_spec,
+      release_state: %Release.State{} = release_state
+    } = data
+
+    try_stop_release(release_spec, release_state)
+
+    {state, actions} = Workflow.next(@state_name, :release_stopped, nil)
+    actions = [{:reply, from, :ok} | actions]
+    {:next_state, state, data, actions}
+  end
+
   # NOTE: deploy event is also handled in :observe state
   def handle_event({:call, from}, {:deploy, version}, _state, data) do
     {state, actions} = Workflow.next(@state_name, :trigger_deployment, version)
@@ -99,9 +112,9 @@ defmodule ControlNode.Namespace.Manage do
     end
   end
 
-  defp try_stop_release(%Release.Spec{} = release_spec, %Release.State{host: host}) do
+  defp try_stop_release(%Release.Spec{} = release_spec, %Release.State{} = release_state) do
     try do
-      Release.stop(release_spec, host)
+      Release.stop(release_spec, release_state)
     catch
       e, m ->
         Logger.error("Failed to stop release, #{inspect({e, m})}")
