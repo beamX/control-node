@@ -115,8 +115,8 @@ namespace_spec = %ControlNode.Namespace.Spec{
   release nodes,
 
 ```elixir
-ServiceApp.start_link(namespace_spec)
-ServiceApp.deploy(:testing, "0.1.0")
+{:ok, namespace_manager} = ControlNode.Namespace.start_link(namespace_spec, ServiceApp)
+ControlNode.Namespace.deploy(namespace_manager, "0.1.0")
 Node.list()
 ```
 

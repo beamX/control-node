@@ -61,6 +61,23 @@ defmodule ControlNode.Namespace.ManageTest do
     end
   end
 
+  describe "[event: :stop] handle_event/4" do
+    setup_with_mocks([
+      {:erpc, [:unstick], [call: &erpc_call/4]}
+    ]) do
+      :ok
+    end
+
+    test "stops release node on remote host" do
+      data = build_workflow_data("localhost1")
+
+      action = [{:reply, :sender_pid, :ok}]
+
+      assert {:next_state, :manage, data, ^action} =
+               Manage.handle_event({:call, :sender_pid}, :stop, :ignore, data)
+    end
+  end
+
   describe "[event: :check_health] handle_event/4" do
     setup_with_mocks([
       {:erpc, [:unstick], [call: &erpc_call/4]}
