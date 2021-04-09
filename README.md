@@ -120,6 +120,20 @@ ControlNode.Namespace.deploy(namespace_manager, "0.1.0")
 Node.list()
 ```
 
+### Connect and observe with observer
+
+Once `Node.list()` shows that the control node is connected to the release nodes
+then `observer` can be used to observe and inspect the remote nodes,
+
+```elixir
+l(:observer)
+:observer.start()
+```
+
+## Under the hood
+
+`TODO`
+
 ### SSH server config to enable tunneling
 In order to ensure that Control Node can connect to release node the SSH servers running
 the release should allow tunneling,
