@@ -132,7 +132,17 @@ l(:observer)
 
 ## Under the hood
 
-`TODO`
+<img src="./assets/how_it_works.png" alt="How it works" width="700"/>
+
+- Upon starting, `control_node` will try to connect to EMPD process for each
+specified host and gather info regarding running services on each host
+- In case a service managed by control is already running on a given node
+  control node will retrieve the current running version and start monitoring the release
+- In case no service is found running on a given host, `control_node` will
+  establish a connection to the host and wait for a deployment command to be
+  issued
+- If any of the monitored service nodes goes down control node will attempt
+  (max. 5) to restart the node
 
 ### SSH server config to enable tunneling
 In order to ensure that Control Node can connect to release node the SSH servers running
