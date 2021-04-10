@@ -1,0 +1,95 @@
+@startuml
+
+scale 1024 width
+
+
+'
+' Styling
+'
+skinparam {
+        DefaultFontName    Fira Sans Compressed
+        Shadowing false
+        RoundCorner 8
+        TitleBorderRoundCorner 5
+        DefaultFontSize 16
+        Padding 0
+}
+
+skinparam component {
+        FontName           Fira Sans Compressed
+        FontColor          black
+        AttributeFontColor black
+        FontSize           17
+        BackgroundColor    #fff
+        BorderColor        black
+        BorderThickness    0.5
+        ArrowColor         #272822
+}
+
+skinparam rectangle {
+        BackgroundColor    #f8fbfb
+        BorderColor        #005247
+        BorderThickness    1
+}
+
+skinparam node {
+        BackgroundColor #ffefdb
+        BorderColor #fff
+}
+
+skinparam cloud {
+        BorderColor #0099ff
+}
+
+skinparam frame {
+        BorderColor #ae81ff
+        FontStyle regular
+}
+
+skinparam interface {
+        BackgroundColor #f2f2fc
+        BorderColor #182799
+}
+
+skinparam collections {
+        BackgroundColor #fff8e5
+        BorderColor #ffbe00
+}
+
+
+skinparam note {
+        BackgroundColor #f8f8f2
+        BorderColor #272822
+}
+
+title Architecture
+skinparam componentStyle rectangle
+
+cloud {
+        node "Server 1" {
+                component "Service 1" as service1vm1
+                component "Service 2" as service2vm1
+                interface "EPMD" as EPMDvm1
+        }
+}
+
+cloud {
+        node "Server 2" {
+                component "Service 1" as service1vm2
+                component "Service 3" as service3vm2
+                interface "EPMD" as EPMDvm2
+        }
+}
+
+component "Control Node" as control_node {
+        collections "Service Managers" as service_FSMs
+}
+
+service_FSMs --> service1vm1
+service_FSMs --> service2vm1
+service_FSMs --> service1vm2
+service_FSMs --> service3vm2
+control_node <-- EPMDvm1 : receive service info
+control_node <-- EPMDvm2 : receive service info
+
+@enduml
