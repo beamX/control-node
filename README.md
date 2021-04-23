@@ -16,23 +16,23 @@ def deps do
 end
 ```
 
-## TL;DR
+## Introduction
 
-`control_node` is an Elixir library which offers APIs that allows to build
-custom deployment and orchestration workflows. For a given a release tar of an
-Elixir/Erlang project `control_node` offers APIs to store and manage release tar
-via local registry and deploy releases to remote hosts (via SSH) and monitor
-service nodes.
+`control_node` is an Elixir library which allows developers to build deployment
+and orchestration workflows as code.
 
+With `control_node` library you can build your custom orchestration service
+tailored to your needs i.e. `control_node` offers APIs to store and manage
+release tars and deploy releases to remote hosts via **SSH** and monitor and
+manage deployed service nodes.
 
 ## Pre-requisites
 
 In order to use `control_node` you must ensure the following,
 
-- You are deploying to virtual machines or bare metal servers. Control node
-  should have SSH access all these host machines where the releases will run.
-- Your Erlang/Elixir project when started should run the EPMD (it runs by
-  default if you don't change the config)
+- **Control node should have SSH access all host machines where releases will be deployed**
+- **Host machines should have EPMD running** (it runs by default when an Elixir
+  release is started if you don't change the config)
 
 ## Features
 
@@ -59,11 +59,13 @@ $ cd control-code/
 ```
 
 Start an SSH server locally where the release will be deployed,
+
 ```
 $ docker-compose up -d
 ```
 
 Start `iex` with distribution turned on
+
 ```elixir
 $ iex -S mix
 Erlang/OTP 23 [erts-11.0] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [hipe]
@@ -75,8 +77,9 @@ iex(control_node_test@hostname)2>
 
 Execute the Elixir code snippets in the console,
 
-- Define `ServiceApp` module (copy paste the code in the console) which will offer
-API to deploy `service_app`,
+- Define `ServiceApp` module (copy paste the code in the console) which will
+  offer API to deploy `service_app`,
+
 ```elixir
 defmodule ServiceApp do
   use ControlNode.Release,
@@ -84,7 +87,9 @@ defmodule ServiceApp do
 end
 ```
 
-- Declare a `host_spec` which will hold the details of which host the release can be deployed to
+- Declare a `host_spec` which will hold the details of which host the release
+  can be deployed to
+
 ```elixir
 host_spec = %ControlNode.Host.SSH{
   host: "localhost",
@@ -94,10 +99,10 @@ host_spec = %ControlNode.Host.SSH{
 }
 ```
 
-- Declare a `namespace_spec` which define the namespace for a given release. Notice that the
-namespace allows specifying a list of `hosts` and `registry`.
-A registry module offers API to retrieve the release tar and here we use a `Local` registry
-which will retrieve the release tar from the filesystem.
+- Declare a `namespace_spec` which define the namespace for a given release.
+Notice that the namespace allows specifying a list of `hosts` and `registry`.
+A registry module offers API to retrieve the release tar and here we use a
+`Local` registry which will retrieve the release tar from the filesystem.
 
 ```elixir
 namespace_spec = %ControlNode.Namespace.Spec{
@@ -130,14 +135,21 @@ l(:observer)
 :observer.start()
 ```
 
+### Can control node be used to deploy non Elixir/Erlang project?
+
+Yes. 
+
+`TODO` example
+
 ## Under the hood
 
 <img src="./assets/how_it_works.png" alt="How it works" width="700"/>
 
 - Upon starting, `control_node` will try to connect to EMPD process for each
-specified host and gather info regarding running services on each host
+  specified host and gather info regarding running services on each host
 - In case a service managed by control is already running on a given node
-  control node will retrieve the current running version and start monitoring the release
+  control node will retrieve the current running version and start monitoring
+  the release
 - In case no service is found running on a given host, `control_node` will
   establish a connection to the host and wait for a deployment command to be
   issued
@@ -145,8 +157,9 @@ specified host and gather info regarding running services on each host
   (max. 5) to restart the node
 
 ### SSH server config to enable tunneling
-In order to ensure that Control Node can connect to release node the SSH servers running
-the release should allow tunneling,
+
+In order to ensure that Control Node can connect to release node the SSH servers
+running the release should allow tunneling,
 
 ```
 ...
@@ -154,10 +167,12 @@ AllowTcpForwarding yes
 ...
 ```
 
-## Limitation
+## Limitations
 
-- **SSH client only supports `ed25519` keys**
-- Only short names for nodes are allowed ie. `sevice_app@hostname` is support and **not** `sevice_app@host1.server.com`
+- **SSH client only supports `ed25519` keys**. Other keys types are supported
+  only via SSH agent
+- Only short names for nodes are allowed ie. `sevice_app@hostname` is support
+  and **not** `sevice_app@host1.server.com`
 - Nodes of a given release (deployed to different) should have different
   hostname for eg. if node 1 has node name `service_app@host1` then another node
   of `service_app` should have a different node name.

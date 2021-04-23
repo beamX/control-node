@@ -9,7 +9,7 @@ defmodule ControlNode.Release do
     * `:function` : Health check function which will be evaluated in the release nodes.
     * `:interval` : Time interval after which health function shall be evaluated
       on release nodes.
-    * `:on_failure` : Action to perform when node(s) failure is detected. Allowed values
+    * `:on_failure` : Action to perform when a node failure is detected. Allowed values
     `:reboot | :noop`
     """
 
