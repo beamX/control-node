@@ -85,11 +85,36 @@ defmodule ControlNode.Release do
       alias ControlNode.Namespace
 
       @doc """
-      Deploy a new version of the service to the given namespace.
+      Get current release version running on the host
+
+      Returns:
+
+        - `{:ok, binary()}` : return the current running version
+
+        - `{:ok, nil}` : `nil` implies that release was not found registered with the EMPD or the EMPD was not running at all
+
+        - `:busy` : implies that release process was initializing state or deploying a release
       """
+      @spec current_version(Namespace.Spec.t(), ControlNode.Host.SSH.t()) ::
+              {:ok, binary} | {:ok, nil} | {:ok, :busy}
+      def current_version(%Namespace.Spec{} = namespace_spec, host_spec) do
+        name(namespace_spec.tag, @release_name, host_spec.host)
+        |> call(:current_version)
+      end
+
+      @doc """
+      Deploy a new version of the service to the given host
+
+      Returns:
+
+        - `:ok` : Process has started deploying the new version on the given host
+
+        - `:busy`: Process is busy deploying a release
+      """
+      @spec deploy(Namespace.Spec.t(), ControlNode.Host.SSH.t(), binary) :: :ok | :busy
       def deploy(%Namespace.Spec{} = namespace_spec, host_spec, version) do
         name(namespace_spec.tag, @release_name, host_spec.host)
-        |> :gen_statem.call({:deploy, version})
+        |> call({:deploy, version})
       end
 
       @doc """
@@ -100,12 +125,28 @@ defmodule ControlNode.Release do
         |> :gen_statem.call(:stop)
       end
 
+      defp call(pid, msg) do
+        try do
+          :gen_statem.call(pid, msg, 1000)
+        catch
+          err, {:timeout, _} ->
+            :busy
+
+          other ->
+            {:error, other}
+        end
+      end
+
+      @doc """
+      (Helper) Returns the name of the release handled by the process
+      """
       def release_name, do: @release_name
 
       defp name(namespace_tag, release_name, hostname) do
         {:via, Registry, {ControlNode.ReleaseRegistry, {namespace_tag, release_name, hostname}}}
       end
 
+      @doc false
       def start_link(%Namespace.Spec{} = namespace_spec, host_spec) do
         name = name(namespace_spec.tag, @release_name, host_spec.host)
         :gen_statem.start_link(name, __MODULE__, [namespace_spec, host_spec], [])
@@ -145,9 +186,10 @@ defmodule ControlNode.Release do
   host a SSH tunnel is established and control node connects to the release (via
   `Node.connect/1`) and starts monitoring the release node.
   """
+  @spec initialize_state(Release.Spec.t(), ControlNode.Host.SSH.t(), :atom) ::
+          Release.State.t()
   def initialize_state(release_spec, host_spec, cookie) do
-    with {:ok, %Host.Info{services: services}} <-
-           Host.info(host_spec) do
+    with {:ok, %Host.Info{services: services}} <- Host.info(host_spec) do
       case Map.get(services, release_spec.name) do
         nil ->
           State.new(host_spec)
@@ -162,6 +204,7 @@ defmodule ControlNode.Release do
 
             # register node locally
             register_node(release_spec, host_spec, local_port)
+
             true = connect_and_monitor(release_spec, host_spec, cookie)
 
             release_state = %State{
@@ -187,6 +230,11 @@ defmodule ControlNode.Release do
             end
           end
       end
+    else
+      {:error, :no_data} ->
+        # Since no data was received from EPMD, assume that the release is not running
+        Logger.info("Failed to get node information from EPMD. Maybe EPMD is not running.")
+        State.new(host_spec)
     end
   end
 

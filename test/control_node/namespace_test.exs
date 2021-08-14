@@ -9,6 +9,12 @@ defmodule ControlNode.NamespaceTest do
   defmodule TestRelease do
     use GenServer
 
+    def current_version(_namespace_spec, %{host: "localhost2"}) do
+      :busy
+    end
+
+    def current_version(_namespace_spec, _host_spec), do: {:ok, "0.1.0"}
+
     def release_name(), do: :example_release
 
     def start_link(ns_spec, host_spec) do
@@ -35,10 +41,13 @@ defmodule ControlNode.NamespaceTest do
   end
 
   test "starts release process for all hosts", %{namespace_spec: namespace_spec} do
-    {:ok, _pid} = Namespace.start_link(namespace_spec, TestRelease)
+    {:ok, pid} = Namespace.start_link(namespace_spec, TestRelease)
     :timer.sleep(100)
 
     assert %{active: 2, specs: 2, supervisors: 0, workers: 2} =
              DynamicSupervisor.count_children(@supervisor)
+
+    assert {:ok, [%{host: "localhost1", version: "0.1.0"}, :busy]} ==
+             Namespace.current_version(pid)
   end
 end

@@ -15,7 +15,8 @@ defmodule ControlNode.Namespace.Deploy do
   def callback_mode, do: :handle_event_function
 
   def handle_event(:internal, {:ensure_running, version}, _state, data) do
-    Logger.info("Deploying release version #{version}")
+    Logger.metadata(version: version)
+    Logger.info("Deploying release")
 
     %Workflow.Data{
       namespace_spec: %Namespace.Spec{registry_spec: registry_spec, control_mode: control_mode},
@@ -24,16 +25,8 @@ defmodule ControlNode.Namespace.Deploy do
     } = data
 
     if current_version != version do
-      with {:error, {error, message}} <-
-             ensure_running(release_state, release_spec, registry_spec, version) do
-        # Either an error occurred when stopping the release or when deploying it
-        metadata = [error: error, message: message, release_state: inspect(release_state)]
-
-        Logger.error(
-          "Failed to deploy release version #{version}, attempts=#{data.deploy_attempts}",
-          metadata
-        )
-      end
+      # Try to run the release on the given host
+      ensure_running(release_state, release_spec, registry_spec, version)
     end
 
     data = %Workflow.Data{data | deploy_attempts: data.deploy_attempts + 1}
@@ -70,7 +63,10 @@ defmodule ControlNode.Namespace.Deploy do
     try do
       :ok = Release.stop(release_spec, release_state)
     catch
-      error, message -> {:error, {error, message}}
+      error, message ->
+        metadata = [error: inspect({error, message})]
+        Logger.error("Failed to stop release", metadata)
+        {:error, {error, message}}
     end
   end
 
@@ -83,7 +79,11 @@ defmodule ControlNode.Namespace.Deploy do
         Release.is_running?(release_spec, host_spec)
       end)
     catch
-      error, message -> {:error, {error, message}}
+      error, message ->
+        metadata = [error: inspect({error, message})]
+        Logger.error("Failed to deploy release version #{version}", metadata)
+
+        {:error, {error, message}}
     end
   end
 end

@@ -7,7 +7,7 @@ defmodule ControlNode.MixProject do
     [
       name: "Control Node",
       app: :control_node,
-      version: "0.5.0",
+      version: "0.6.0",
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -45,6 +45,7 @@ defmodule ControlNode.MixProject do
     ]
   end
 
+  defp elixirc_paths(:docs), do: ["lib", "example"]
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
@@ -53,7 +54,7 @@ defmodule ControlNode.MixProject do
       {:mock, "~> 0.3.0", only: :test},
       {:ex_machina, "~> 2.4", only: :test},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
-      {:ex_doc, "~> 0.22", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.22", only: [:dev, :docs], runtime: false}
     ]
   end
 

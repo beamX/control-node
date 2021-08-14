@@ -35,12 +35,15 @@ defmodule ControlNode.Namespace.Initialize do
 
     %Workflow.Data{namespace_spec: namespace_spec, release_spec: release_spec} = data
 
-    release_state =
+    %Release.State{} =
+      release_state =
       Release.initialize_state(
         release_spec,
         data.release_state.host,
         namespace_spec.release_cookie
       )
+
+    Logger.info("Loaded release state", release_state: inspect(release_state))
 
     data = %Workflow.Data{data | release_state: release_state}
 

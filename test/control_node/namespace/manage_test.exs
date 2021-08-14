@@ -78,6 +78,17 @@ defmodule ControlNode.Namespace.ManageTest do
     end
   end
 
+  describe "[event: :current_version] handle_event/4" do
+    test "return current running version of release" do
+      data = build_workflow_data("localhost1")
+
+      response = {:keep_state_and_data, [{:reply, :sender_pid, {:ok, "0.1.0"}}]}
+
+      assert response ==
+               Manage.handle_event({:call, :sender_pid}, :current_version, :ignore, data)
+    end
+  end
+
   describe "[event: :check_health] handle_event/4" do
     setup_with_mocks([
       {:erpc, [:unstick], [call: &erpc_call/4]}
