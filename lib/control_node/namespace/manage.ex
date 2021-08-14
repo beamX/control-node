@@ -8,6 +8,13 @@ defmodule ControlNode.Namespace.Manage do
 
   def callback_mode, do: :handle_event_function
 
+  def handle_event({:call, from}, :current_version, _state, data) do
+    %Workflow.Data{release_state: %Release.State{version: version}} = data
+
+    response = {:reply, from, {:ok, version}}
+    {:keep_state_and_data, [response]}
+  end
+
   def handle_event({:call, from}, :stop, _state, data) do
     %Workflow.Data{
       release_spec: %Release.Spec{} = release_spec,

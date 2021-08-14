@@ -45,8 +45,14 @@ defmodule ControlNode.Namespace do
     GenServer.cast(namespace_pid, {:deploy, version})
   end
 
+  def current_version(namespace_pid) do
+    GenServer.call(namespace_pid, :current_version)
+  end
+
   def start_link(namespace_spec, release_mod) do
-    GenServer.start_link(__MODULE__, [namespace_spec, release_mod])
+    name = :"#{namespace_spec.tag}_#{release_mod.release_name}"
+    Logger.debug("Starting namespace with name #{name}")
+    GenServer.start_link(__MODULE__, [namespace_spec, release_mod], name: name)
   end
 
   @impl true
@@ -62,6 +68,22 @@ defmodule ControlNode.Namespace do
     %{spec: namespace_spec, release_mod: release_mod} = state
     ensure_started_releases(namespace_spec, release_mod)
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_call(
+        :current_version,
+        _from,
+        %{spec: namespace_spec, release_mod: release_mod} = state
+      ) do
+    version_list =
+      Enum.map(namespace_spec.hosts, fn host_spec ->
+        with {:ok, vsn} <- release_mod.current_version(namespace_spec, host_spec) do
+          %{host: host_spec.host, version: vsn}
+        end
+      end)
+
+    {:reply, {:ok, version_list}, state}
   end
 
   @impl true

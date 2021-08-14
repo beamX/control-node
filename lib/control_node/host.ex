@@ -1,6 +1,7 @@
 defmodule ControlNode.Host do
   @moduledoc false
 
+  require Logger
   alias ControlNode.Host.SSH
   @epmd_names 110
   @int16_1 [0, 1]
@@ -19,10 +20,15 @@ defmodule ControlNode.Host do
   def disconnect(host_spec), do: SSH.disconnect(host_spec)
 
   @spec upload_file(SSH.t(), binary, binary) :: :ok
-  def upload_file(%SSH{} = host_spec, path, file), do: SSH.upload_file(host_spec, path, file)
+  def upload_file(%SSH{} = host_spec, path, file) do
+    Logger.debug("Copying release to remote host")
+    SSH.upload_file(host_spec, path, file)
+  end
 
   @spec extract_tar(SSH.t(), binary, binary) :: :ok | :failure | {:error, any}
   def extract_tar(%SSH{} = host_spec, release_path, release_dir) do
+    Logger.debug("Extracting release on remove host")
+
     with {:ok, %SSH.ExecStatus{exit_code: 0}} <-
            SSH.exec(host_spec, "tar -xf #{release_path} -C #{release_dir}") do
       :ok
