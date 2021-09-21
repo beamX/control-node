@@ -135,11 +135,17 @@ l(:observer)
 :observer.start()
 ```
 
-### Can control node be used to deploy non Elixir/Erlang project?
+## Real world example
 
-Yes. 
+https://github.com/kansi/cnops
 
-`TODO` example
+
+## Can control node be used to deploy non Elixir/Erlang project?
+
+YES!
+
+https://github.com/kansi/cnops deploys a Golang service `hello_go`
+
 
 ## Under the hood
 
