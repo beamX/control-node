@@ -13,7 +13,7 @@ defmodule ControlNode.Host.SSH do
             conn: nil,
             hostname: nil,
             via_ssh_agent: false,
-            env_vars: %{}
+            env_vars: nil
 
   @typedoc """
   SSH spec defines a host which shall be used to connect and deploy releases. Following fields should be
@@ -129,6 +129,7 @@ defmodule ControlNode.Host.SSH do
   @spec exec(t, list | binary) :: {:ok, ExecStatus.t()} | :failure | {:error, any}
   def exec(ssh_config, commands, skip_eof \\ false) do
     env_vars = to_shell_env_vars(ssh_config.env_vars, :inline)
+    Logger.debug("Processed env var", env_vars: env_vars)
     do_exec(ssh_config, "#{env_vars} #{commands}", skip_eof)
   end
 
@@ -139,6 +140,8 @@ defmodule ControlNode.Host.SSH do
   end
 
   defp do_exec(ssh_config, script, skip_eof) when is_binary(script) do
+    Logger.debug("Executing script on host", host: ssh_config.host, script: script)
+
     with {:ok, conn} <- connect_host(ssh_config),
          {:ok, channel_id} <- :ssh_connection.session_channel(conn, @timeout),
          :success <- :ssh_connection.exec(conn, channel_id, to_list(script), @timeout) do
@@ -151,18 +154,18 @@ defmodule ControlNode.Host.SSH do
     end
   end
 
-  @spec to_shell_env_vars(Map.t(), :inline | :export) :: String.t()
-  defp to_shell_env_vars(%{}, _), do: ""
+  @spec to_shell_env_vars(Map.t() | nil, :inline | :export) :: String.t()
+  defp to_shell_env_vars(nil, _), do: ""
 
   defp to_shell_env_vars(env_vars, :inline) do
-    Enum.map(env_vars, "", fn {key, value}, acc ->
+    Enum.map(env_vars, fn {key, value} ->
       "#{key}=#{value}"
     end)
     |> Enum.join(" ")
   end
 
   defp to_shell_env_vars(env_vars, :export) do
-    Enum.map(env_vars, "", fn {key, value}, acc ->
+    Enum.map(env_vars, fn {key, value} ->
       "export #{key}=#{value}"
     end)
     |> Enum.join("; ")

@@ -33,20 +33,19 @@ defmodule ControlNode.Host.SSHTest do
     end
 
     test "run list of commands on remote SSH server", %{ssh_config: ssh_config} do
+      ssh_config = Map.put(ssh_config, :env_vars, %{"ENV_TEST" => "hello world"})
       assert {:ok, %SSH.ExecStatus{exit_status: :success}} =
-               SSH.exec(ssh_config, [
-                 "export ENV_TEST='hello world'",
-                 "echo $ENV_TEST > /tmp/config.txt"
-               ])
+               SSH.exec(ssh_config, ["echo $ENV_TEST > /tmp/config.txt"])
 
       assert {:ok, "hello world\n"} = File.read("/tmp/config.txt")
     end
 
     test "runs script on remote SSH server", %{ssh_config: ssh_config} do
+      ssh_config = Map.put(ssh_config, :env_vars, %{"ENV_TEST" => "hello world"})
+
       script = """
       #!/bin/sh
 
-      export ENV_TEST='hello world';
       echo $ENV_TEST > /tmp/config.txt
       """
 

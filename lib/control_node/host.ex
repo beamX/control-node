@@ -38,7 +38,7 @@ defmodule ControlNode.Host do
   @spec init_release(SSH.t(), binary, atom) :: :ok | :failure | {:error, any}
   def init_release(%SSH{} = host_spec, init_file, command) do
     with {:ok, %SSH.ExecStatus{exit_code: 0}} <-
-           SSH.exec(host_spec, "nohup #{init_file} #{command} &", true) do
+           SSH.exec(host_spec, "#{init_file} #{command}", true) do
       :ok
     end
   end

@@ -379,7 +379,7 @@ defmodule ControlNode.Release do
          :ok <- Host.upload_file(host_spec, host_release_path, tar_file),
          :ok <- Host.extract_tar(host_spec, host_release_path, host_release_dir) do
       init_file = Path.join(host_release_dir, "bin/#{release_spec.name}")
-      Host.init_release(host_spec, init_file, :start)
+      Host.init_release(host_spec, init_file, :daemon)
     end
   end
 
