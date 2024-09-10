@@ -17,7 +17,7 @@ defmodule ControlNode.Factory do
   end
 
   defp with_fixture_path(path) do
-    Path.join([File.cwd!(), "test/fixture", path]) |> to_char_list()
+    Path.join([File.cwd!(), "test/fixture", path]) |> Kernel.to_charlist()
   end
 
   def namespace_spec_factory do

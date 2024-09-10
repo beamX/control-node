@@ -57,7 +57,7 @@ defmodule ControlNode.Namespace.DeployTest do
     test "transitions to [state: :initialize] after failing to terminate deployment" do
       data = build_workflow_data("0.1.0")
 
-      assert {:next_state, :initialize, data, next_actions} =
+      assert {:next_state, :initialize, _data, next_actions} =
                Namespace.Deploy.handle_event(:internal, {:ensure_running, "0.2.0"}, :ignore, data)
 
       assert next_actions == expected_actions("0.2.0")
@@ -66,7 +66,7 @@ defmodule ControlNode.Namespace.DeployTest do
     test "transitions to [state: :initialize] after failing to start deployment" do
       data = build_workflow_data("0.2.0")
 
-      assert {:next_state, :initialize, data, next_actions} =
+      assert {:next_state, :initialize, _data, next_actions} =
                Namespace.Deploy.handle_event(:internal, {:ensure_running, "0.3.0"}, :ignore, data)
 
       assert next_actions == expected_actions("0.3.0")

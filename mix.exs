@@ -7,8 +7,8 @@ defmodule ControlNode.MixProject do
     [
       name: "Control Node",
       app: :control_node,
-      version: "0.6.0",
-      elixir: "~> 1.10",
+      version: "0.7.0",
+      elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       elixirc_options: [warnings_as_errors: true],

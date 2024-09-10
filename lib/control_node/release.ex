@@ -205,6 +205,8 @@ defmodule ControlNode.Release do
             # register node locally
             register_node(release_spec, host_spec, local_port)
 
+            # TODO: handle scenario where conneting to node fails because of
+            # incorrect cookie
             true = connect_and_monitor(release_spec, host_spec, cookie)
 
             release_state = %State{
@@ -215,6 +217,7 @@ defmodule ControlNode.Release do
               release_path: release_path(release_spec, host_spec)
             }
 
+            # Get the pid of the release service running on the remote host
             release_pid = rpc(release_state, release_spec, &:os.getpid/0, [])
 
             case get_version(release_spec, host_spec) do

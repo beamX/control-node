@@ -14,9 +14,15 @@ jobs:
         run: ls -al
       - name: Change permission for test keys
         run: make permissions
+      - name: Install docker compose
+        run: |
+          curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
       - name: Build docker-compose stack
         run: docker-compose -f docker-compose.yml up -d
       - name: Check running containers
         run: docker ps -a
+      - name: Install lib required to run erlang/beam on ssh server
+        run: docker exec openssh-server apk add libstdc++
       - name: Run test suite
         run: docker exec control-node make test

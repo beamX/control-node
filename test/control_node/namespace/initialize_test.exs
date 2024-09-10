@@ -17,7 +17,7 @@ defmodule ControlNode.Namespace.InitializeTest do
       ]
 
       with_mock Release, initialize_state: &mock_initialize_state/3 do
-        assert {:next_state, :manage, data, next_actions} =
+        assert {:next_state, :manage, _data, next_actions} =
                  Initialize.handle_event(:internal, :load_release_state, :initialize, data)
 
         assert next_actions == actions
@@ -30,7 +30,7 @@ defmodule ControlNode.Namespace.InitializeTest do
       actions = [{:change_callback_module, ControlNode.Namespace.Manage}]
 
       with_mock Release, initialize_state: &mock_initialize_state/3 do
-        assert {:next_state, :manage, data, next_actions} =
+        assert {:next_state, :manage, _data, next_actions} =
                  Initialize.handle_event(:internal, :load_release_state, :initialize, data)
 
         assert next_actions == actions
@@ -57,7 +57,7 @@ defmodule ControlNode.Namespace.InitializeTest do
         {:next_event, :internal, :schedule_health_check}
       ]
 
-      assert {:next_state, :manage, data, next_actions} =
+      assert {:next_state, :manage, _data, next_actions} =
                Initialize.handle_event(
                  :internal,
                  {:load_release_state, "0.1.0"},
@@ -72,7 +72,7 @@ defmodule ControlNode.Namespace.InitializeTest do
           when release with `version` is not running" do
       data = build_workflow_data("localhost3")
 
-      assert {:next_state, :deploy, data, next_actions} =
+      assert {:next_state, :deploy, _data, next_actions} =
                Initialize.handle_event(
                  :internal,
                  {:load_release_state, "0.1.0"},
@@ -87,7 +87,7 @@ defmodule ControlNode.Namespace.InitializeTest do
           when different release versions are running" do
       data = build_workflow_data("localhost")
 
-      assert {:next_state, :deploy, data, next_actions} =
+      assert {:next_state, :deploy, _data, next_actions} =
                Initialize.handle_event(
                  :internal,
                  {:load_release_state, "0.2.0"},
@@ -102,7 +102,7 @@ defmodule ControlNode.Namespace.InitializeTest do
           when release is not running" do
       data = build_workflow_data("localhost3")
 
-      assert {:next_state, :deploy, data, next_actions} =
+      assert {:next_state, :deploy, _data, next_actions} =
                Initialize.handle_event(
                  :internal,
                  {:load_release_state, "0.2.0"},
@@ -170,7 +170,7 @@ defmodule ControlNode.Namespace.InitializeTest do
     test "[event: :observe_namespace_state] transitions to [state: :observe]" do
       data = build_workflow_data("localhost")
 
-      assert {:next_state, :observe, data, next_actions} =
+      assert {:next_state, :observe, _data, next_actions} =
                Initialize.handle_event(:internal, :observe_release_state, :initialize, data)
 
       assert next_actions == [{:change_callback_module, Namespace.Observe}]
@@ -179,7 +179,7 @@ defmodule ControlNode.Namespace.InitializeTest do
     test "[event: :connect_namespace_state] transitions to [state: :connect]" do
       data = build_workflow_data("localhost")
 
-      assert {:next_state, :connect, data, next_actions} =
+      assert {:next_state, :connect, _data, next_actions} =
                Initialize.handle_event(:internal, :connect_release_state, :initialize, data)
 
       assert next_actions == [{:change_callback_module, Namespace.Connect}]

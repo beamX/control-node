@@ -6,15 +6,19 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
+      - HOME=/app
       - TZ=Europe/Berlin
       - PUBLIC_KEY=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDg+KMD7QAU+qtH3duwTHmBaJE/WUdiOwC87cqP5cL21 control-node@email.com
+      - SUDO_ACCESS=true
+      - PASSWORD_ACCESS=false
+      - USER_PASSWORD=password
     volumes:
       - ./test/fixture/config:/config
       - /tmp:/tmp
     ports:
       - 2222:2222
   control-node:
-    image: beamx/elixir:1.10.4-otp-23
+    image: elixir:1.14.5-otp-24
     container_name: control-node
     depends_on:
       - openssh-server

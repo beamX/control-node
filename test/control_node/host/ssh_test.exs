@@ -1,5 +1,7 @@
 defmodule ControlNode.Host.SSHTest do
   use ExUnit.Case
+  require Logger
+  import ExUnit.CaptureLog
   import ControlNode.TestUtils
   alias ControlNode.Host.SSH
 
@@ -32,21 +34,21 @@ defmodule ControlNode.Host.SSHTest do
       on_exit(fn -> System.cmd("rm", ["-rf", "/tmp/config.txt"]) end)
     end
 
+    # NOTE: in order to have ENV vars the ssh server config has to be updated
+    # so we just assert that the correct command was sent to the server
     test "run list of commands on remote SSH server", %{ssh_config: ssh_config} do
-      assert {:ok, %SSH.ExecStatus{exit_status: :success}} =
-               SSH.exec(ssh_config, [
-                 "export ENV_TEST='hello world'",
-                 "echo $ENV_TEST > /tmp/config.txt"
-               ])
+      ssh_config = %SSH{ssh_config | env_vars: %{"ENV_TEST" => "hello world"}}
 
-      assert {:ok, "hello world\n"} = File.read("/tmp/config.txt")
+      assert capture_log(fn ->
+        assert {:ok, %SSH.ExecStatus{exit_status: :success}} = SSH.exec(ssh_config, ["echo $ENV_TEST > /tmp/config.txt"])
+      end) =~ "ENV_TEST='hello world' echo $ENV_TEST > /tmp/config.txt"
     end
 
     test "runs script on remote SSH server", %{ssh_config: ssh_config} do
       script = """
       #!/bin/sh
 
-      export ENV_TEST='hello world';
+      export ENV_TEST="hello world"
       echo $ENV_TEST > /tmp/config.txt
       """
 

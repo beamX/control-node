@@ -12,12 +12,15 @@ defmodule ControlNode.TestUtils do
       host: host,
       port: 2222,
       user: "linuxserver.io",
-      private_key_dir: private_key_dir
+      private_key_dir: private_key_dir,
+      env_vars: %{
+        "RELEASE_COOKIE": "YFWZXAOJGTABHNGIT6KVAC2X6TEHA6WCIRDKSLFD6JZWRC4YHMMA===="
+      }
     }
   end
 
   defp with_fixture_path(path) do
-    Path.join([File.cwd!(), "test/fixture", path]) |> to_char_list()
+    Path.join([File.cwd!(), "test/fixture", path]) |> Kernel.to_charlist()
   end
 
   def exec_stop(release_spec, host_spec) do

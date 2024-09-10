@@ -5,7 +5,7 @@ defmodule ServiceApp.MixProject do
     [
       app: :service_app,
       version: "0.1.0",
-      elixir: "~> 1.10",
+      elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       releases: releases()
@@ -23,6 +23,7 @@ defmodule ServiceApp.MixProject do
   def releases do
     [
       service_app: [
+        cookie: :"YFWZXAOJGTABHNGIT6KVAC2X6TEHA6WCIRDKSLFD6JZWRC4YHMMA====",
         include_erts: true,
         include_executables_for: [:unix],
         steps: [:assemble, :tar]

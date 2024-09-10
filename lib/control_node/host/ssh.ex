@@ -12,7 +12,8 @@ defmodule ControlNode.Host.SSH do
             private_key_dir: nil,
             conn: nil,
             hostname: nil,
-            via_ssh_agent: false
+            via_ssh_agent: false,
+            env_vars: nil
 
   @typedoc """
   SSH spec defines a host which shall be used to connect and deploy releases. Following fields should be
@@ -24,6 +25,7 @@ defmodule ControlNode.Host.SSH do
   * `:user` : SSH user name
   * `:private_key_dir` : Path to the `.ssh` folder (eg. `/home/user/.ssh`)
   * `via_ssh_agent`:  Use SSH Agent for authentication (default `false`)
+  * `env_vars`:  Define env vars (key, value) to be passed when running a command on the remote host
   """
   @type t :: %__MODULE__{
           host: binary,
@@ -127,14 +129,28 @@ defmodule ControlNode.Host.SSH do
   """
   @spec exec(t, list | binary) :: {:ok, ExecStatus.t()} | :failure | {:error, any}
   def exec(ssh_config, commands, skip_eof \\ false) do
-    do_exec(ssh_config, commands, skip_eof)
+    env_vars = to_shell_env_vars(ssh_config.env_vars, :inline)
+    Logger.debug("Processed env var", env_vars: env_vars)
+
+    script =
+      if env_vars != "" do
+        "#{env_vars} #{commands}"
+      else
+        commands
+      end
+
+    do_exec(ssh_config, script, skip_eof)
   end
 
   defp do_exec(ssh_config, commands, skip_eof) when is_list(commands) do
+    env_vars = to_shell_env_vars(ssh_config.env_vars, :export)
+    commands = env_vars <> Enum.join(commands, "; ")
     do_exec(ssh_config, Enum.join(commands, "; "), skip_eof)
   end
 
   defp do_exec(ssh_config, script, skip_eof) when is_binary(script) do
+    Logger.debug("Executing script on host", host: ssh_config.host, script: script)
+
     with {:ok, conn} <- connect_host(ssh_config),
          {:ok, channel_id} <- :ssh_connection.session_channel(conn, @timeout),
          :success <- :ssh_connection.exec(conn, channel_id, to_list(script), @timeout) do
@@ -145,6 +161,23 @@ defmodule ControlNode.Host.SSH do
 
       {:ok, status}
     end
+  end
+
+  @spec to_shell_env_vars(Map.t() | nil, :inline | :export) :: String.t()
+  defp to_shell_env_vars(nil, _), do: ""
+
+  defp to_shell_env_vars(env_vars, :inline) do
+    Enum.map(env_vars, fn {key, value} ->
+      "#{key}='#{value}'"
+    end)
+    |> Enum.join(" ")
+  end
+
+  defp to_shell_env_vars(env_vars, :export) do
+    Enum.map(env_vars, fn {key, value} ->
+      "export #{key}=#{value}"
+    end)
+    |> Enum.join("; ")
   end
 
   defp get_exec_status(conn, status, skip_eof) do
