@@ -130,7 +130,15 @@ defmodule ControlNode.Host.SSH do
   def exec(ssh_config, commands, skip_eof \\ false) do
     env_vars = to_shell_env_vars(ssh_config.env_vars, :inline)
     Logger.debug("Processed env var", env_vars: env_vars)
-    do_exec(ssh_config, "#{env_vars} #{commands}", skip_eof)
+
+    script =
+      if env_vars != "" do
+        "#{env_vars} #{commands}"
+      else
+        commands
+      end
+
+    do_exec(ssh_config, script, skip_eof)
   end
 
   defp do_exec(ssh_config, commands, skip_eof) when is_list(commands) do
@@ -159,7 +167,7 @@ defmodule ControlNode.Host.SSH do
 
   defp to_shell_env_vars(env_vars, :inline) do
     Enum.map(env_vars, fn {key, value} ->
-      "#{key}=#{value}"
+      "#{key}='#{value}'"
     end)
     |> Enum.join(" ")
   end

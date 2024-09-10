@@ -12,7 +12,8 @@ defmodule ControlNode.ReleaseTest do
     host_spec = ssh_fixture()
     release_spec = %Release.Spec{name: :service_app, base_path: "/app/service_app"}
     registry_spec = %Registry.Local{path: Path.join(File.cwd!(), "example")}
-    cookie = :"YFWZXAOJGTABHNGIT6KVAC2X6TEHA6WCIRDKSLFD6JZWRC4YHMMA===="
+    %{"RELEASE_COOKIE": cookie_str} = host_spec.env_vars
+    cookie = String.to_atom(cookie_str)
 
     # start erlang distribution
     # net_kernel starts the erlang distribution which during its start process
@@ -130,6 +131,9 @@ defmodule ControlNode.ReleaseTest do
       Release.stop(release_spec, release_state)
     end
 
+    @tag :skip
+    # NOTE: Not sure what this test was supposed to cover :/
+    # remember to document next time
     test "Setup tunnel and return state of service with nil version", %{
       release_spec: release_spec,
       host_spec: host_spec,

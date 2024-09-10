@@ -22,5 +22,7 @@ jobs:
         run: docker-compose -f docker-compose.yml up -d
       - name: Check running containers
         run: docker ps -a
+      - name: Install lib required to run erlang/beam on ssh server
+        run: docker exec openssh-server apk add libstdc++
       - name: Run test suite
         run: docker exec control-node make test
