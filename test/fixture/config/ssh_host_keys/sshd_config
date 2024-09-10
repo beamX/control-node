@@ -10,7 +10,7 @@
 # possible, but leave them commented.  Uncommented options override the
 # default value.
 
-#Port 22
+Port 2222
 #AddressFamily any
 #ListenAddress 0.0.0.0
 #ListenAddress ::
@@ -107,7 +107,7 @@ PidFile /config/sshd.pid
 #Banner none
 
 # override default of no subsystems
-Subsystem	sftp	/usr/lib/ssh/sftp-server
+Subsystem	sftp	/usr/lib/ssh/sftp-server -u 022
 
 # Example of overriding settings on a per-user basis
 #Match User anoncvs

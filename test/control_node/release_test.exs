@@ -142,7 +142,7 @@ defmodule ControlNode.ReleaseTest do
       mock_rpc_call = {:erpc, [:unstick], [call: &rpc_call/4]}
 
       with_mocks([mock_rpc_call]) do
-        assert %Release.State{host: host_spec, version: "0.1.0", status: :running} =
+        assert %Release.State{host: _host_spec, version: "0.1.0", status: :running} =
                  Release.initialize_state(release_spec, host_spec, cookie)
       end
 

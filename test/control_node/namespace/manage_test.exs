@@ -73,7 +73,7 @@ defmodule ControlNode.Namespace.ManageTest do
 
       action = [{:reply, :sender_pid, :ok}]
 
-      assert {:next_state, :manage, data, ^action} =
+      assert {:next_state, :manage, _data, ^action} =
                Manage.handle_event({:call, :sender_pid}, :stop, :ignore, data)
     end
   end
@@ -99,7 +99,7 @@ defmodule ControlNode.Namespace.ManageTest do
     test "performs health check and keeps state when health check passes" do
       data = build_workflow_data("localhost2")
 
-      assert {:keep_state, data, []} =
+      assert {:keep_state, _data, []} =
                Manage.handle_event(:internal, :check_health, :ignore, data)
     end
 
@@ -124,7 +124,7 @@ defmodule ControlNode.Namespace.ManageTest do
 
       data = %{build_workflow_data("localhost3") | release_spec: release_spec}
 
-      assert {:keep_state, data, []} =
+      assert {:keep_state, _data, []} =
                Manage.handle_event(:internal, :check_health, :ignore, data)
     end
   end
