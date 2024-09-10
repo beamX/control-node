@@ -25,6 +25,7 @@ defmodule ControlNode.Host.SSH do
   * `:user` : SSH user name
   * `:private_key_dir` : Path to the `.ssh` folder (eg. `/home/user/.ssh`)
   * `via_ssh_agent`:  Use SSH Agent for authentication (default `false`)
+  * `env_vars`:  Define env vars (key, value) to be passed when running a command on the remote host
   """
   @type t :: %__MODULE__{
           host: binary,
