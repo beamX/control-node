@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.7.0] - 2021-03-13
+- Migrate to Elixir 1.14
+
 ## [0.4.0] - 2021-03-13
 - Support control modes `CONNECT | OBSERVE | MANAGE`
 
