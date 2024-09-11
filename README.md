@@ -11,7 +11,7 @@
 ```elixir
 def deps do
   [
-    {:control_node, "~> 0.5.0"}
+    {:control_node, "~> 0.7.0"}
   ]
 end
 ```
