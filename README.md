@@ -43,8 +43,9 @@ In order to use `control_node` you must ensure the following,
 - [x] Native service monitoring/health check
 - [x] Blue-Green deployment
 - [x] Support failover via [heart](http://erlang.org/doc/man/heart.html)
-- [ ] Support namespace environment variable configuration
-- [ ] Rollback releases
+- [x] Rollback releases
+- [x] Support namespace environment variable configuration
+- [ ] Support package registries other than local file system
 
 ## Quick example
 
@@ -137,14 +138,18 @@ l(:observer)
 
 ## Real world example
 
-https://github.com/kansi/cnops
+https://github.com/kansi/cnops (outdated)
 
 
 ## Can control node be used to deploy non Elixir/Erlang project?
 
-YES!
+Yes! The general idea would be to compile target project into a command and run
+and monitor that command from an elixir service. This maybe more work but you
+have the option of avoiding multiple deploy tools
 
 https://github.com/kansi/cnops deploys a Golang service `hello_go`
+
+NOTE: The above is old but still valid inspiration
 
 
 ## Under the hood
@@ -171,6 +176,28 @@ running the release should allow tunneling,
 ...
 AllowTcpForwarding yes
 ...
+```
+
+## SSH key rotation
+
+A general good security practice is to routinely rotate your SSH keys. Control
+node expose APIs via `ControlNode.Host.SSH` module which can be leveraged to
+perform this rotation. Below is an example,
+
+``` elixir
+host_spec = %ControlNode.Host.SSH{
+  host: "localhost",
+  port: 2222,
+  user: "linuxserver.io",
+  private_key_dir: "/path/to/ssh_dir"
+}
+
+authorized_keys = """
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDg+KMD7QAU+qtH3duwTHmBaJE/WUdiOwC87cqP5cL21 control-node@email.com
+"""
+
+host_state = ControlNode.Host.SSH.connect(host_spec)
+ControlNode.Host.SSH.exec(host_state, "echo '#{authorized_key}' > /user/.ssh/authorized_keys")
 ```
 
 ## Limitations
