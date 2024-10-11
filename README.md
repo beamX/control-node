@@ -73,7 +73,7 @@ iex(1)> :net_kernel.start([:control_node_test, :shortnames])
 iex(control_node_test@hostname)2> 
 ```
 
-#### Define the release
+### Define the release
 
 ```elixir
 defmodule ServiceApp do
@@ -84,7 +84,7 @@ end
 - `ServiceApp` module will expose APIs to deploy the release
 
 
-#### Define a host to deploy to
+### Define a host to deploy to
 
 ```elixir
 host_spec = %ControlNode.Host.SSH{
@@ -98,7 +98,7 @@ host_spec = %ControlNode.Host.SSH{
 - `host_spec` host the configuration of a single host the release can be deployed to
 
 
-#### Declare a `namespace` 
+### Declare a namespace 
 
 - This defines the environment for a given release
 
@@ -117,7 +117,7 @@ namespace_spec = %ControlNode.Namespace.Spec{
 - `hosts` defines a list of servers where the release will be deployed
 
 
-#### Deploy the release
+### Deploy the release
 
 ```elixir
 {:ok, namespace_manager} = ControlNode.Namespace.start_link(namespace_spec, ServiceApp)
