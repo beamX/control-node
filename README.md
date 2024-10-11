@@ -18,14 +18,14 @@ end
 
 ## Introduction
 
-`control_node` is an Elixir library that enables building your own continous
-delivery and orchestration service tailored to your needs. It offers APIs to
-store release tars and deploy them to remote hosts (via **SSH**) and monitor and
-manage deployed service nodes.
+`control_node` is a Elixir library that enables building custom continous
+delivery and orchestration service. It offers APIs to store release tars and
+deploy them to remote hosts (via **SSH**), monitor and manage deployed
+service nodes.
 
 ## Pre-requisites
 
-In order to use `control_node` you must ensure the following,
+In order to build with `control_node` you must ensure the following,
 
 - **Control node should have SSH access to all host machines where releases will be deployed**
 - **Deployed Elixir services should register with EPMD** (this happens by default when an Elixir
@@ -46,20 +46,17 @@ In order to use `control_node` you must ensure the following,
 
 ## Quick example
 
-This library ships with an example `service_app` under `example/` folder. You
-can try out this library by trying to deploy the release using the following
-steps,
+Control node ships with an example `service_app` under `example/` folder which
+can be used to create an example service deployment. Below are the details,
 
-Clone the repo
+
+Clone the repo and start a remote docker SSH server where the release will be
+deployed,
+
 ```
 $ git clone https://github.com/beamX/control-node
 $ cd control-code/
-```
-
-Start an SSH server locally where the release will be deployed,
-
-```
-$ docker-compose up -d
+$ docker-compose up -d  # start a SSH server
 ```
 
 Start `iex` with distribution turned on
@@ -81,7 +78,7 @@ defmodule ServiceApp do
     spec: %ControlNode.Release.Spec{name: :service_app, base_path: "/app/service_app"}
 end
 ```
-- `ServiceApp` module will expose APIs to deploy the release
+- `ServiceApp` module exposes APIs to deploy the release
 
 
 ### Define a host to deploy to
