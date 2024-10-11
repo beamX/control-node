@@ -18,20 +18,17 @@ end
 
 ## Introduction
 
-`control_node` is an Elixir library which allows developers to build deployment
-and orchestration workflows as code.
-
-With `control_node` library you can build your custom orchestration service
-tailored to your needs i.e. `control_node` offers APIs to store and manage
-release tars and deploy releases to remote hosts via **SSH** and monitor and
+`control_node` is an Elixir library that enables building your own continous
+delivery and orchestration service tailored to your needs. It offers APIs to
+store release tars and deploy them to remote hosts (via **SSH**) and monitor and
 manage deployed service nodes.
 
 ## Pre-requisites
 
 In order to use `control_node` you must ensure the following,
 
-- **Control node should have SSH access all host machines where releases will be deployed**
-- **Host machines should have EPMD running** (it runs by default when an Elixir
+- **Control node should have SSH access to all host machines where releases will be deployed**
+- **Deployed Elixir services should register with EPMD** (this happens by default when an Elixir
   release is started if you don't change the config)
 
 ## Features
@@ -76,10 +73,7 @@ iex(1)> :net_kernel.start([:control_node_test, :shortnames])
 iex(control_node_test@hostname)2> 
 ```
 
-Execute the Elixir code snippets in the console,
-
-- Define `ServiceApp` module (copy paste the code in the console) which will
-  offer API to deploy `service_app`,
+#### Define the release
 
 ```elixir
 defmodule ServiceApp do
@@ -87,9 +81,10 @@ defmodule ServiceApp do
     spec: %ControlNode.Release.Spec{name: :service_app, base_path: "/app/service_app"}
 end
 ```
+- `ServiceApp` module will expose APIs to deploy the release
 
-- Declare a `host_spec` which will hold the details of which host the release
-  can be deployed to
+
+#### Define a host to deploy to
 
 ```elixir
 host_spec = %ControlNode.Host.SSH{
@@ -100,10 +95,12 @@ host_spec = %ControlNode.Host.SSH{
 }
 ```
 
-- Declare a `namespace_spec` which define the namespace for a given release.
-Notice that the namespace allows specifying a list of `hosts` and `registry`.
-A registry module offers API to retrieve the release tar and here we use a
-`Local` registry which will retrieve the release tar from the filesystem.
+- `host_spec` host the configuration of a single host the release can be deployed to
+
+
+#### Declare a `namespace` 
+
+- This defines the environment for a given release
 
 ```elixir
 namespace_spec = %ControlNode.Namespace.Spec{
@@ -115,16 +112,24 @@ namespace_spec = %ControlNode.Namespace.Spec{
 }
 ```
 
-- Now we deploy the release to a given `namespace_spec` i.e. the release we be
-  started on on all the `hosts` specified in the namespace. Notice that once the
-  deployment is finished `control_node_test@hostname` automatically connects to
-  release nodes,
+- `registry` defines where to download the release tarball from
+  - `%ControlNode.Registry.Local{}` defines that release tarball will be fetched from local filesystem
+- `hosts` defines a list of servers where the release will be deployed
+
+
+#### Deploy the release
 
 ```elixir
 {:ok, namespace_manager} = ControlNode.Namespace.start_link(namespace_spec, ServiceApp)
 ControlNode.Namespace.deploy(namespace_manager, "0.1.0")
 Node.list()
 ```
+
+- The above deploys the release to `namespace_spec` environment i.e. the release
+  we be started on all the `hosts` specified in the `namespace_spec`. 
+  - NOTE that once the deployment is finished `control_node_test@hostname`
+    automatically connects to release nodes,
+
 
 ### Connect and observe with observer
 
@@ -138,7 +143,7 @@ l(:observer)
 
 ## Real world example
 
-https://github.com/kansi/cnops (outdated)
+https://github.com/kansi/cnops (a bit outdated)
 
 
 ## Can control node be used to deploy non Elixir/Erlang project?
