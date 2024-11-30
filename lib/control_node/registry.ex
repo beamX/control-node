@@ -20,6 +20,13 @@ defmodule ControlNode.Registry do
   end
 
   @doc """
+  Retrieves application release tar file location
+  """
+  def location(%Local{} = registry_spec, application, version) do
+    Path.join(registry_spec.path, "#{application}-#{version}.tar.gz")
+  end
+
+  @doc """
   Stores application release tar file in the filesystem
   """
   def store(%Local{} = registry_spec, application, version, file_data) do

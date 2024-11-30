@@ -35,11 +35,15 @@ defmodule ControlNode.Release do
             name: atom,
             base_path: String.t(),
             start_timeout: integer,
+            deploy_func: :default | function(),
+            init_func: :default | :noop
             health_check_spec: HealthCheckSpec.t()
           }
     defstruct name: nil,
               base_path: nil,
               start_timeout: 5,
+              deploy_func: :default,
+              init_func: :default,
               health_check_spec: %HealthCheckSpec{}
   end
 
@@ -373,7 +377,7 @@ defmodule ControlNode.Release do
   """
   @spec deploy(Spec.t(), Host.SSH.t(), ControlNode.Registry.Local.t(), binary) ::
           :ok | {:error, Host.SSH.ExecStatus.t()}
-  def deploy(%Spec{} = release_spec, host_spec, registry_spec, version) do
+  def deploy(%Spec{deploy_func: :default} = release_spec, host_spec, registry_spec, version) do
     # WARN: may not work if host OS is different from control-node OS
     host_release_dir = Path.join(release_spec.base_path, version)
     host_release_path = Path.join(host_release_dir, "#{release_spec.name}-#{version}.tar.gz")
@@ -382,8 +386,22 @@ defmodule ControlNode.Release do
          :ok <- Host.upload_file(host_spec, host_release_path, tar_file),
          :ok <- Host.extract_tar(host_spec, host_release_path, host_release_dir) do
       init_file = Path.join(host_release_dir, "bin/#{release_spec.name}")
-      Host.init_release(host_spec, init_file, :start)
+      init_release(release_spec, host_spec, init_file)
     end
+  end
+
+  def deploy(%Spec{deploy_func: deploy_func} = release_spec, host_spec, registry_spec, version) when is_function(deploy_func) do
+    with {:ok, remote_init_file} <- deploy_func.(release_spec, host_spec, registry_spec, version) do
+      init_release(release_spec, host_spec, remote_init_file)
+    end
+  end
+
+  defp init_release(%Spec{init_func: :default}, host_spec, init_file) do
+    Host.init_release(host_spec, init_file, :start)
+  end
+
+  defp init_release(%Spec{init_func: init_func}, host_spec, init_file) do
+    init_func.(host_spec, init_file)
   end
 
   @spec start(Spec.t(), State.t()) :: term
