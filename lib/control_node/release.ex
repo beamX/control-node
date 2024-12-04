@@ -36,7 +36,7 @@ defmodule ControlNode.Release do
             base_path: String.t(),
             start_timeout: integer,
             deploy_func: :default | function(),
-            init_func: :default | :noop
+            init_func: :default | :noop,
             health_check_spec: HealthCheckSpec.t()
           }
     defstruct name: nil,
@@ -193,14 +193,17 @@ defmodule ControlNode.Release do
   @spec initialize_state(Release.Spec.t(), ControlNode.Host.SSH.t(), :atom) ::
           Release.State.t()
   def initialize_state(release_spec, host_spec, cookie) do
-    with {:ok, %Host.Info{services: services}} <- Host.info(host_spec) do
-      case Map.get(services, release_spec.name) do
+    with {:ok, host_spec} <- Host.hostname(host_spec),
+         {:ok, %Host.Info{services: services}} <- Host.info(host_spec),
+         {:ok, nodename} <- to_node_name(release_spec, host_spec) do
+
+      # Check if the nodename is registered on host
+      case Map.get(services, to_sname(nodename)) do
         nil ->
           State.new(host_spec)
 
         service_port ->
-          with %Host.SSH{} = host_spec <- Host.connect(host_spec),
-               {:ok, host_spec} <- Host.hostname(host_spec) do
+          with %Host.SSH{} = host_spec <- Host.connect(host_spec) do
             # Setup tunnel to release port on host
             # TODO/NOTE/WARN random local port should be used to avoid having a clash
             # if the releases use the same port on different hosts
@@ -334,10 +337,12 @@ defmodule ControlNode.Release do
   end
 
   defp register_node(release_spec, host_spec, service_port) do
+    {:ok, nodename} = to_node_name(release_spec, host_spec)
+
     # NOTE: Configure host config for inet
     # This config will be used by BEAM to resolve `hostname`
     Inet.add_alias_for_localhost(host_spec.hostname)
-    Epmd.register_release(release_spec.name, host_spec.hostname, service_port)
+    Epmd.register_release(to_sname(nodename), host_spec.hostname, service_port)
   end
 
   defp get_version(release_spec, host_spec) do
@@ -444,8 +449,18 @@ defmodule ControlNode.Release do
     end
   end
 
+  def to_sname(nodename) do
+    Atom.to_string(nodename) |> String.split("@") |> hd() |> String.to_atom()
+  end
+
   def to_node_name(_release_spec, %Host.SSH{hostname: nil}), do: {:error, :hostname_not_found}
 
-  def to_node_name(release_spec, host_spec),
-    do: {:ok, :"#{release_spec.name}@#{host_spec.hostname}"}
+  def to_node_name(release_spec, %Host.SSH{env_vars: env_vars} = host_spec) do
+    # NOTE: If the env_vars for the host defines `RELEASE_NAME` then we should
+    # take that over the default name
+    # - env_var could be nil
+    sname = Map.get(env_vars || %{}, :RELEASE_NAME, release_spec.name)
+
+    {:ok, :"#{sname}@#{host_spec.hostname}"}
+  end
 end

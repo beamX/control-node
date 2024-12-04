@@ -95,7 +95,7 @@ defmodule ControlNode.Namespace.Initialize do
 
         {:running, 0}
       else
-        Logger.warn("Release state loaded, expected version #{version} found #{current_version}")
+        Logger.warn("Release state loaded, expected version #{version} found #{current_version || "err_not_deployed"}")
 
         {:partially_running, data.deploy_attempts}
       end
