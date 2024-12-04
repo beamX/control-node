@@ -36,7 +36,7 @@ defmodule ControlNode.Release do
             base_path: String.t(),
             start_timeout: integer,
             deploy_func: :default | function(),
-            init_func: :default | :noop,
+            init_func: :default | function(),
             health_check_spec: HealthCheckSpec.t()
           }
     defstruct name: nil,
@@ -458,7 +458,7 @@ defmodule ControlNode.Release do
   def to_node_name(release_spec, %Host.SSH{env_vars: env_vars} = host_spec) do
     # NOTE: If the env_vars for the host defines `RELEASE_NAME` then we should
     # take that over the default name
-    # - env_var could be nil
+    # - env_vars could be nil
     sname = Map.get(env_vars || %{}, :RELEASE_NAME, release_spec.name)
 
     {:ok, :"#{sname}@#{host_spec.hostname}"}
