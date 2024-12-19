@@ -35,17 +35,17 @@ defmodule ControlNode.Host do
     end
   end
 
-  @spec init_release(SSH.t(), binary, atom) :: :ok | :failure | {:error, any}
-  def init_release(%SSH{} = host_spec, init_file, command) do
-    with {:ok, %SSH.ExecStatus{exit_code: 0}} <-
-           SSH.exec(host_spec, "nohup #{init_file} #{command} &", true) do
+  @spec init_release(SSH.t(), binary) :: :ok | :failure | {:error, any}
+  def init_release(%SSH{} = host_spec, exec_binary) do
+    with {:ok, %SSH.ExecStatus{exit_code: 0}} <- SSH.exec(host_spec, exec_binary, true) do
       :ok
     end
   end
 
+  # TODO : check and remove
   @spec stop_release(SSH.t(), binary) :: :ok | :failure | {:error, any}
   def stop_release(%SSH{} = host_spec, cmd) do
-    with {:ok, %SSH.ExecStatus{exit_code: 0}} <- SSH.exec(host_spec, "nohup #{cmd} stop") do
+    with {:ok, %SSH.ExecStatus{exit_code: 0}} <- SSH.exec(host_spec, "#{cmd} stop") do
       :ok
     end
   end

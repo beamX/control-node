@@ -50,7 +50,7 @@ defmodule ControlNode.Namespace.Manage do
       data = %Workflow.Data{data | health_check_timer: timer_ref}
       {:keep_state, data, []}
     else
-      Logger.warn("Release health check failed")
+      Logger.warning("Release health check failed")
 
       # TODO: respect max failure count before rebooting the release
       if hc_spec.on_failure == :reboot do
@@ -106,7 +106,7 @@ defmodule ControlNode.Namespace.Manage do
   end
 
   def handle_event(any, event, state, _data) do
-    Logger.warn("Unexpected event #{inspect({any, event, state})}")
+    Logger.warning("Unexpected event #{inspect({any, event, state})}")
     {:keep_state_and_data, []}
   end
 

@@ -50,7 +50,7 @@ defmodule ControlNode.Namespace do
   end
 
   def start_link(namespace_spec, release_mod) do
-    name = :"#{namespace_spec.tag}_#{release_mod.release_name}"
+    name = release_mod.get_namespace_pname(namespace_spec)
     Logger.debug("Starting namespace with name #{name}")
     GenServer.start_link(__MODULE__, [namespace_spec, release_mod], name: name)
   end

@@ -106,6 +106,11 @@ defmodule ControlNode.Release do
         |> call(:current_version)
       end
 
+      @spec get_namespace_pname(Namespace.Spec.t()) :: :atom
+      def get_namespace_pname(%Namespace.Spec{} = namespace_spec) do
+        :"#{namespace_spec.tag}_#{@release_name}"
+      end
+
       @doc """
       Deploy a new version of the service to the given host
 
@@ -232,7 +237,7 @@ defmodule ControlNode.Release do
                 %State{release_state | version: version, pid: release_pid}
 
               _ ->
-                Logger.warn(
+                Logger.warning(
                   "No version found for release #{release_spec.name} on host #{host_spec.host}"
                 )
 
@@ -306,7 +311,7 @@ defmodule ControlNode.Release do
       Node.monitor(node, false)
     else
       _other ->
-        Logger.warn("Failed to demonitor node", release_spec: release_spec, host_spec: host_spec)
+        Logger.warning("Failed to demonitor node", release_spec: release_spec, host_spec: host_spec)
     end
   end
 
@@ -318,6 +323,7 @@ defmodule ControlNode.Release do
   end
 
   def is_running?(release_spec, host_spec) do
+    Logger.debug("Checking if release #{release_spec.name} is running on host", host_spec: host_spec)
     case node_info(release_spec, host_spec) do
       {:ok, _} -> true
       _ -> false
@@ -325,8 +331,12 @@ defmodule ControlNode.Release do
   end
 
   defp node_info(release_spec, host_spec) do
-    with {:ok, %Host.Info{services: services}} <- Host.info(host_spec) do
-      case Map.get(services, release_spec.name) do
+    with {:ok, %Host.Info{services: services}} <- Host.info(host_spec),
+         {:ok, nodename} <- to_node_name(release_spec, host_spec) do
+
+      Logger.debug("Checking for node #{nodename} on host", host_spec: host_spec)
+
+      case Map.get(services, to_sname(nodename)) do
         nil ->
           {:error, :release_not_running}
 
@@ -402,17 +412,13 @@ defmodule ControlNode.Release do
   end
 
   defp init_release(%Spec{init_func: :default}, host_spec, init_file) do
-    Host.init_release(host_spec, init_file, :start)
+    # cmd = "nohup #{init_file} start &"
+    cmd = "#{init_file} daemon"
+    Host.init_release(host_spec,  cmd)
   end
 
   defp init_release(%Spec{init_func: init_func}, host_spec, init_file) do
     init_func.(host_spec, init_file)
-  end
-
-  @spec start(Spec.t(), State.t()) :: term
-  def start(release_spec, %State{host: host_spec, release_path: release_path}) do
-    init_file = Path.join(release_path, "bin/#{release_spec.name}")
-    Host.init_release(host_spec, init_file, :start)
   end
 
   defp connect_and_monitor(release_spec, host_spec, cookie) do

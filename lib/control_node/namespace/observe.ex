@@ -14,7 +14,7 @@ defmodule ControlNode.Namespace.Observe do
   end
 
   def handle_event(any, event, state, _data) do
-    Logger.warn("Unexpected event #{inspect({any, event, state})}")
+    Logger.warning("Unexpected event #{inspect({any, event, state})}")
     {:keep_state_and_data, []}
   end
 end
