@@ -144,8 +144,8 @@ defmodule ControlNode.Host.SSH do
 
   defp do_exec(ssh_config, commands, skip_eof) when is_list(commands) do
     env_vars = to_shell_env_vars(ssh_config.env_vars, :export)
-    commands = env_vars <> Enum.join(commands, "; ")
-    do_exec(ssh_config, Enum.join(commands, "; "), skip_eof)
+    commands = env_vars <> Enum.join(commands, " && ")
+    do_exec(ssh_config, commands, skip_eof)
   end
 
   defp do_exec(ssh_config, script, skip_eof) when is_binary(script) do

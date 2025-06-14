@@ -65,7 +65,7 @@ defmodule ControlNode.Namespace.Initialize do
         :initialize,
         %Workflow.Data{deploy_attempts: deploy_attempts} = data
       )
-      when deploy_attempts >= 5 do
+      when deploy_attempts >= 3 do
     Logger.error("Depoyment attempts exhausted, failed to deploy release version #{version}")
     {state, actions} = Namespace.Workflow.next(@state_name, :not_running, :ignore)
     data = %Workflow.Data{data | deploy_attempts: 0}

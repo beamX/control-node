@@ -70,6 +70,13 @@ defmodule ControlNode.Host do
     with {:ok, info} <- epmd_list_names(host_spec) do
       disconnect(host_spec)
       {:ok, info}
+    else
+      # No data was received, this usually implies that EPMD may not be running
+      # on remote host. So, no beam service is running hence we return empty map
+      {:error, :no_data} ->
+        {:ok, %Info{services: %{}}}
+      other ->
+        other
     end
   end
 
