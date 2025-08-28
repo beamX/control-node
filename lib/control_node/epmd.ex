@@ -23,11 +23,15 @@ defmodule ControlNode.Epmd do
 
   def address_please(name, host, _address_family) do
     key = {"#{name}", "#{host}"}
-    [{_, port}] = :ets.lookup(:control_node_epmd, key)
-    # The distribution protocol version number has been 5 ever since
-    # Erlang/OTP R6.
-    version = 5
-    {:ok, {127, 0, 0, 1}, port, version}
+    case :ets.lookup(:control_node_epmd, key) do
+      [{_, port}] ->
+        # The distribution protocol version number has been 5 ever since
+        # Erlang/OTP R6.
+        version = 5
+        {:ok, {127, 0, 0, 1}, port, version}
+      _ ->
+        {:error, :not_found}
+    end
   end
 
   def register_release(name, host, port) do

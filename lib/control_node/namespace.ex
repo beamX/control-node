@@ -49,8 +49,12 @@ defmodule ControlNode.Namespace do
     GenServer.call(namespace_pid, :current_version)
   end
 
+  def update_namespace_spec(%ControlNode.Namespace.Spec{} = spec) do
+    GenServer.call(spec, {:update_namespace_spec, spec})
+  end
+
   def start_link(namespace_spec, release_mod) do
-    name = :"#{namespace_spec.tag}_#{release_mod.release_name}"
+    name = release_mod.get_namespace_id(namespace_spec)
     Logger.debug("Starting namespace with name #{name}")
     GenServer.start_link(__MODULE__, [namespace_spec, release_mod], name: name)
   end
@@ -84,6 +88,11 @@ defmodule ControlNode.Namespace do
       end)
 
     {:reply, {:ok, version_list}, state}
+  end
+
+  @impl true
+  def handle_call({:update_namespace_spec, spec}, _from, state) do
+    {:reply, :ok, %{state | spec: spec}}
   end
 
   @impl true

@@ -35,17 +35,17 @@ defmodule ControlNode.Host do
     end
   end
 
-  @spec init_release(SSH.t(), binary, atom) :: :ok | :failure | {:error, any}
-  def init_release(%SSH{} = host_spec, init_file, command) do
-    with {:ok, %SSH.ExecStatus{exit_code: 0}} <-
-           SSH.exec(host_spec, "nohup #{init_file} #{command} &", true) do
+  @spec init_release(SSH.t(), binary) :: :ok | :failure | {:error, any}
+  def init_release(%SSH{} = host_spec, exec_binary) do
+    with {:ok, %SSH.ExecStatus{exit_code: 0}} <- SSH.exec(host_spec, exec_binary, skip_eof: true) do
       :ok
     end
   end
 
+  # TODO : check and remove
   @spec stop_release(SSH.t(), binary) :: :ok | :failure | {:error, any}
   def stop_release(%SSH{} = host_spec, cmd) do
-    with {:ok, %SSH.ExecStatus{exit_code: 0}} <- SSH.exec(host_spec, "nohup #{cmd} stop") do
+    with {:ok, %SSH.ExecStatus{exit_code: 0}} <- SSH.exec(host_spec, "#{cmd} stop") do
       :ok
     end
   end
@@ -58,7 +58,7 @@ defmodule ControlNode.Host do
   @spec hostname(SSH.t()) :: {:ok, binary}
   def hostname(%SSH{} = host_spec) do
     with {:ok, %SSH.ExecStatus{exit_status: :success, message: [hostname]}} <-
-           SSH.exec(host_spec, "hostname") do
+           SSH.exec(host_spec, "hostname", skip_env_vars: true) do
       {:ok, %SSH{host_spec | hostname: String.trim(hostname)}}
     end
   end
@@ -70,6 +70,13 @@ defmodule ControlNode.Host do
     with {:ok, info} <- epmd_list_names(host_spec) do
       disconnect(host_spec)
       {:ok, info}
+    else
+      # No data was received, this usually implies that EPMD may not be running
+      # on remote host. So, no beam service is running hence we return empty map
+      {:error, :no_data} ->
+        {:ok, %Info{services: %{}}}
+      other ->
+        other
     end
   end
 

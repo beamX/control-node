@@ -131,6 +131,27 @@ defmodule ControlNode.ReleaseTest do
       Release.stop(release_spec, release_state)
     end
 
+    test "Connects to node with custom RELEASE_NAME", %{
+      release_spec: release_spec,
+      host_spec: host_spec,
+      cookie: cookie
+    } do
+      custom_release_name = "service-app-dev"
+      host_spec = %{
+        host_spec | env_vars: %{RELEASE_NAME: custom_release_name}
+      }
+
+      assert %Release.State{
+               host: host_spec,
+               version: "0.1.0",
+               status: :running,
+               release_path: "/app/service_app/0.1.0"
+             } = release_state = Release.initialize_state(release_spec, host_spec, cookie)
+
+      assert :pong == Node.ping(:"#{custom_release_name}@#{host_spec.hostname}")
+      Release.stop(release_spec, release_state)
+    end
+
     @tag :skip
     # NOTE: Not sure what this test was supposed to cover :/
     # remember to document next time
