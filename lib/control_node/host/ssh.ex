@@ -25,7 +25,9 @@ defmodule ControlNode.Host.SSH do
   * `:user` : SSH user name
   * `:private_key_dir` : Path to the `.ssh` folder (eg. `/home/user/.ssh`)
   * `via_ssh_agent`:  Use SSH Agent for authentication (default `false`)
-  * `env_vars`:  Define env vars (key, value) to be passed when running a command on the remote host
+  * `env_vars`:  Define env vars (key, value) to be passed when running a command on the remote host.
+                 NOTE: `value` can be data or function with signature `fn (%ControlNode.Host.SSH{}) -> ... end`
+                 and must return computed data
   """
   @type t :: %__MODULE__{
           host: binary,
@@ -35,7 +37,8 @@ defmodule ControlNode.Host.SSH do
           private_key_dir: binary,
           conn: :ssh.connection_ref(),
           hostname: binary,
-          via_ssh_agent: boolean
+          via_ssh_agent: boolean,
+          env_vars: Map.t() | nil
         }
   @timeout :infinity
 
@@ -127,9 +130,12 @@ defmodule ControlNode.Host.SSH do
   be set to `true`. This enable `exec` to return `ExecStatus` while the command
   is left running on host.
   """
-  @spec exec(t, list | binary) :: {:ok, ExecStatus.t()} | :failure | {:error, any}
-  def exec(ssh_config, commands, skip_eof \\ false) do
-    env_vars = to_shell_env_vars(ssh_config.env_vars, :inline)
+  @spec exec(t, list | binary, list) :: {:ok, ExecStatus.t()} | :failure | {:error, any}
+  def exec(ssh_config, commands, opts \\ []) do
+    skip_eof = Keyword.get(opts, :skip_eof, false)
+    skip_env_vars = Keyword.get(opts, :skip_env_vars, false)
+
+    env_vars = not skip_env_vars && to_shell_env_vars(ssh_config, :inline) || ""
     Logger.debug("Processed env var", env_vars: env_vars)
 
     script =
@@ -143,7 +149,7 @@ defmodule ControlNode.Host.SSH do
   end
 
   defp do_exec(ssh_config, commands, skip_eof) when is_list(commands) do
-    env_vars = to_shell_env_vars(ssh_config.env_vars, :export)
+    env_vars = to_shell_env_vars(ssh_config, :export)
     commands = env_vars <> Enum.join(commands, " && ")
     do_exec(ssh_config, commands, skip_eof)
   end
@@ -163,18 +169,22 @@ defmodule ControlNode.Host.SSH do
     end
   end
 
-  @spec to_shell_env_vars(Map.t() | nil, :inline | :export) :: String.t()
-  defp to_shell_env_vars(nil, _), do: ""
+  @spec to_shell_env_vars(t, :inline | :export) :: String.t()
+  defp to_shell_env_vars(%__MODULE__{env_vars: nil}, _), do: ""
 
-  defp to_shell_env_vars(env_vars, :inline) do
+  defp to_shell_env_vars(%__MODULE__{env_vars: env_vars} = ssh_config, :inline) do
     Enum.map(env_vars, fn {key, value} ->
+      value = is_function(value) && value.(%__MODULE__{ssh_config | conn: nil}) || value
+
       "#{key}='#{value}'"
     end)
     |> Enum.join(" ")
   end
 
-  defp to_shell_env_vars(env_vars, :export) do
+  defp to_shell_env_vars(%__MODULE__{env_vars: env_vars} = ssh_config, :export) do
     Enum.map(env_vars, fn {key, value} ->
+      value = is_function(value) && value.(%__MODULE__{ssh_config | conn: nil}) || value
+
       "export #{key}=#{value}"
     end)
     |> Enum.join("; ")

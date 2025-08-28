@@ -37,7 +37,7 @@ defmodule ControlNode.Host do
 
   @spec init_release(SSH.t(), binary) :: :ok | :failure | {:error, any}
   def init_release(%SSH{} = host_spec, exec_binary) do
-    with {:ok, %SSH.ExecStatus{exit_code: 0}} <- SSH.exec(host_spec, exec_binary, true) do
+    with {:ok, %SSH.ExecStatus{exit_code: 0}} <- SSH.exec(host_spec, exec_binary, skip_eof: true) do
       :ok
     end
   end
@@ -58,7 +58,7 @@ defmodule ControlNode.Host do
   @spec hostname(SSH.t()) :: {:ok, binary}
   def hostname(%SSH{} = host_spec) do
     with {:ok, %SSH.ExecStatus{exit_status: :success, message: [hostname]}} <-
-           SSH.exec(host_spec, "hostname") do
+           SSH.exec(host_spec, "hostname", skip_env_vars: true) do
       {:ok, %SSH{host_spec | hostname: String.trim(hostname)}}
     end
   end

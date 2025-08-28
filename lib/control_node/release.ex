@@ -106,8 +106,8 @@ defmodule ControlNode.Release do
         |> call(:current_version)
       end
 
-      @spec get_namespace_pname(Namespace.Spec.t()) :: :atom
-      def get_namespace_pname(%Namespace.Spec{} = namespace_spec) do
+      @spec get_namespace_id(Namespace.Spec.t()) :: :atom
+      def get_namespace_id(%Namespace.Spec{} = namespace_spec) do
         :"#{namespace_spec.tag}_#{@release_name}"
       end
 
